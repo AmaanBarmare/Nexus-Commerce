@@ -1,0 +1,259 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Enums
+enum ProductStatus {
+  active
+  draft
+  archived
+}
+
+enum OrderStatus {
+  pending
+  paid
+  fulfilled
+  cancelled
+  refunded
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+  refunded
+}
+
+enum FulfillmentStatus {
+  unfulfilled
+  partial
+  fulfilled
+  returned
+}
+
+enum DiscountType {
+  percent
+  fixed
+}
+
+enum AlyraProductType {
+  Refill
+  Set
+}
+
+enum AlyraProductStatus {
+  Active
+  Inactive
+}
+
+// Alyra Products (simplified model for admin management)
+model AlyraProduct {
+  id        String              @id @default(cuid())
+  name      String
+  sku       String              @unique
+  type      AlyraProductType
+  status    AlyraProductStatus  @default(Active)
+  inventory Int                 @default(0)
+  
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+}
+
+// Core Catalog
+model Product {
+  id          String           @id @default(cuid())
+  title       String
+  slug        String           @unique
+  description String?
+  status      ProductStatus    @default(active)
+  images      Json?            // [{url, alt}] or similar
+
+  variants    ProductVariant[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ProductVariant {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  sku            String   @unique
+  title          String
+  priceMinor     Int      // paise
+  compareAtMinor Int?
+  inventoryQty   Int      @default(0)
+  barcode        String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([productId])
+}
+
+// Customers & Addresses
+model Customer {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  firstName    String?
+  lastName     String?
+  phone        String?
+  acceptsEmail Boolean   @default(false)
+
+  addresses    Address[]
+  orders       Order[]
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  line1      String
+  line2      String?
+  city       String
+  state      String?
+  postalCode String
+  country    String
+  isDefault  Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+// Discounts
+model Discount {
+  id               String       @id @default(cuid())
+  code             String       @unique
+  type             DiscountType
+  value            Int          // percent (e.g., 15) or fixed amount in minor units
+  startsAt         DateTime?
+  endsAt           DateTime?
+  usageLimit       Int?
+  perCustomer      Boolean      @default(true)
+  minSubtotalMinor Int?
+  timesUsed        Int          @default(0)
+  active           Boolean      @default(true)
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+// Orders
+model Order {
+  id                String            @id @default(cuid())
+  orderNumber       Int               @unique  // Use DB sequence order_number_seq to populate
+  customerId        String?
+  customer          Customer?         @relation(fields: [customerId], references: [id])
+
+  email             String
+  status            OrderStatus       @default(pending)
+  paymentStatus     PaymentStatus     @default(unpaid)
+  fulfillmentStatus FulfillmentStatus @default(unfulfilled)
+
+  currency          String            @default("INR")
+  subtotalMinor     Int
+  discountMinor     Int               @default(0)
+  shippingMinor     Int               @default(0)
+  taxMinor          Int               @default(0)
+  totalMinor        Int
+
+  discountCode      String?
+  paymentRef        String?           // e.g., Razorpay payment_id (rp_***)
+
+  // Mapping to Razorpay order for webhook reconciliation
+  razorpayOrderId   String?           @unique
+
+  shippingAddress   Json?
+  billingAddress    Json?
+
+  items             OrderItem[]
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([email])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id             String @id @default(cuid())
+  orderId        String
+  order          Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId      String
+  variantId      String
+
+  title          String          // snapshot of product title
+  variantTitle   String?
+  sku            String
+  unitPriceMinor Int
+  qty            Int
+  lineTotalMinor Int
+
+  @@index([orderId])
+  @@index([variantId])
+}
+
+// Carts (cookie-based)
+model Cart {
+  id            String     @id @default(cuid())
+  // associated to browser via HTTP-only cookie (e.g., alyra_cart)
+  email         String?
+  discountCode  String?
+
+  items         CartItem[]
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model CartItem {
+  id             String  @id @default(cuid())
+  cartId         String
+  cart           Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  productId      String
+  variantId      String
+  title          String
+  variantTitle   String?
+  sku            String
+  unitPriceMinor Int
+  qty            Int
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([cartId, variantId]) // one line per variant in a cart
+  @@index([variantId])
+}
+
+// Subscribers
+model Subscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  source    String?
+  status    String   @default("subscribed") // subscribed | unsubscribed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Idempotency (webhooks, etc.)
+model ProcessedEvent {
+  id        String   @id          // store external event ids (e.g., Razorpay event.id)
+  createdAt DateTime @default(now())
+}
+
