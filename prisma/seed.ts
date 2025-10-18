@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AlyraProductType, AlyraProductStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -17,66 +17,66 @@ async function main() {
     {
       name: 'Ecos de Lisboa Refill',
       sku: 'ALY-EDL-REF',
-      type: 'Refill',
-      status: 'Active',
+      type: AlyraProductType.Refill,
+      status: AlyraProductStatus.Active,
       inventory: 100,
     },
     {
       name: 'Riva Azul Refill',
       sku: 'ALY-RAZ-REF',
-      type: 'Refill',
-      status: 'Active',
+      type: AlyraProductType.Refill,
+      status: AlyraProductStatus.Active,
       inventory: 100,
     },
     {
       name: 'Fruit d\'Amour Refill',
       sku: 'ALY-FDA-REF',
-      type: 'Refill',
-      status: 'Active',
+      type: AlyraProductType.Refill,
+      status: AlyraProductStatus.Active,
       inventory: 93,
     },
     // Sets - Black Cases
     {
       name: 'Ecos de Lisboa Set (Black Case)',
       sku: 'ALY-EDL-CASE-BLK',
-      type: 'Set',
-      status: 'Active',
+      type: AlyraProductType.Set,
+      status: AlyraProductStatus.Active,
       inventory: 400,
     },
     {
       name: 'Riva Azul Set (Black Case)',
       sku: 'ALY-RAZ-CASE-BLK',
-      type: 'Set',
-      status: 'Active',
+      type: AlyraProductType.Set,
+      status: AlyraProductStatus.Active,
       inventory: 400,
     },
     {
       name: 'Fruit d\'Amour Set (Black Case)',
       sku: 'ALY-FDA-CASE-BLK',
-      type: 'Set',
-      status: 'Active',
+      type: AlyraProductType.Set,
+      status: AlyraProductStatus.Active,
       inventory: 399,
     },
     // Sets - White Cases
     {
       name: 'Ecos de Lisboa Set (White Case)',
       sku: 'ALY-EDL-CASE-WHT',
-      type: 'Set',
-      status: 'Active',
+      type: AlyraProductType.Set,
+      status: AlyraProductStatus.Active,
       inventory: 399,
     },
     {
       name: 'Riva Azul Set (White Case)',
       sku: 'ALY-RAZ-CASE-WHT',
-      type: 'Set',
-      status: 'Active',
+      type: AlyraProductType.Set,
+      status: AlyraProductStatus.Active,
       inventory: 399,
     },
     {
       name: 'Fruit d\'Amour Set (White Case)',
       sku: 'ALY-FDA-CASE-WHT',
-      type: 'Set',
-      status: 'Active',
+      type: AlyraProductType.Set,
+      status: AlyraProductStatus.Active,
       inventory: 399,
     },
   ];
@@ -90,30 +90,7 @@ async function main() {
   }
   console.log('✅ Alyra products created');
 
-  // Create sample discounts
-  await prisma.discount.upsert({
-    where: { code: 'WELCOME10' },
-    update: {},
-    create: {
-      code: 'WELCOME10',
-      type: 'percent',
-      value: 10,
-      active: true,
-      minSubtotalMinor: 50000, // ₹500 minimum
-    },
-  });
-
-  await prisma.discount.upsert({
-    where: { code: 'SAVE500' },
-    update: {},
-    create: {
-      code: 'SAVE500',
-      type: 'fixed',
-      value: 50000, // ₹500 off
-      active: true,
-      minSubtotalMinor: 200000, // ₹2000 minimum
-    },
-  });
+  // Discounts will be created through the admin interface
 
   console.log('✅ Seed completed successfully');
 }

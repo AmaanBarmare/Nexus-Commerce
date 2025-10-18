@@ -28,6 +28,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const router = useRouter();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,6 +52,7 @@ export default function LoginPage() {
 
       setIsSuccess(true);
       setMessage('');
+      setIsRedirecting(true);
       
       // Give Supabase a moment to set the session, then redirect
       setTimeout(() => {
@@ -111,8 +113,8 @@ export default function LoginPage() {
                 </>
               ) : isSuccess ? (
                 <>
-                  <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                  Success!
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Redirecting...
                 </>
               ) : (
                 'Sign In'
@@ -122,7 +124,7 @@ export default function LoginPage() {
             {isSuccess && (
               <div className="text-center space-y-2">
                 <div className="flex items-center justify-center">
-                  <CheckCircle className="h-8 w-8 text-green-600 animate-pulse" />
+                  <Loader2 className="h-8 w-8 text-green-600 animate-spin" />
                 </div>
                 <p className="text-green-600 font-medium">Login successful!</p>
                 <p className="text-sm text-gray-600">Redirecting to dashboard...</p>

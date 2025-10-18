@@ -31,9 +31,9 @@ export default function DiscountsPage() {
 
   const loadDiscounts = async () => {
     try {
-      // In a real app, create an admin endpoint to list discounts
-      // For now, we'll just show a placeholder
-      setDiscounts([]);
+      const response = await fetch('/api/v2/admin/discounts/list');
+      const data = await response.json();
+      setDiscounts(data.discounts || []);
     } catch (error) {
       console.error('Error loading discounts:', error);
     } finally {

@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
+import { isAdminUser } from '@/lib/auth';
 
 /**
  * Admin-only endpoint to list orders with pagination and filters
  */
 export async function GET(request: NextRequest) {
-  // Check admin auth
-  const cookieStore = await cookies();
-  const adminEmail = cookieStore.get('alyra-admin-email')?.value;
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
-
-  if (!adminEmail || !adminEmails.includes(adminEmail.toLowerCase())) {
+  // Check admin auth using Supabase
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -22,6 +19,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const showAll = searchParams.get('showAll') === 'true';
 
     const skip = (page - 1) * limit;
 
@@ -34,6 +32,16 @@ export async function GET(request: NextRequest) {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = new Date(startDate);
       if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+    
+    // If not showing all orders, filter to last 30 days
+    if (!showAll) {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      where.createdAt = {
+        ...where.createdAt,
+        gte: thirtyDaysAgo,
+      };
     }
 
     const [orders, total] = await Promise.all([

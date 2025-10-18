@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
+import { isAdminUser } from '@/lib/auth';
 import { fulfillOrderSchema } from '@/lib/zod-schemas';
 
 /**
  * Admin-only endpoint to mark order as fulfilled
  */
 export async function POST(request: NextRequest) {
-  // Check admin auth
-  const cookieStore = await cookies();
-  const adminEmail = cookieStore.get('alyra-admin-email')?.value;
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
-
-  if (!adminEmail || !adminEmails.includes(adminEmail.toLowerCase())) {
+  // Check admin auth using Supabase
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
