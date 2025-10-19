@@ -8,12 +8,10 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const products = await prisma.product.findMany({
-      where: { status: 'active' },
-      include: {
-        variants: {
-          where: { inventoryQty: { gt: 0 } },
-        },
+    const products = await prisma.alyraProduct.findMany({
+      where: { 
+        status: 'Active',
+        inventory: { gt: 0 }
       },
       orderBy: { createdAt: 'desc' },
     });

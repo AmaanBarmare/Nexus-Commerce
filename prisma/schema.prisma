@@ -18,35 +18,9 @@ model AlyraProduct {
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
   priceMinor Int                @default(0)
+  discountProducts DiscountProduct[] // NEW: For product-specific discounts
 }
 
-model Product {
-  id          String           @id @default(cuid())
-  title       String
-  slug        String           @unique
-  description String?
-  status      ProductStatus    @default(active)
-  images      Json?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  variants    ProductVariant[]
-}
-
-model ProductVariant {
-  id             String   @id @default(cuid())
-  productId      String
-  sku            String   @unique
-  title          String
-  priceMinor     Int
-  compareAtMinor Int?
-  inventoryQty   Int      @default(0)
-  barcode        String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
-}
 
 model Customer {
   id           String    @id @default(cuid())
@@ -93,6 +67,21 @@ model Discount {
   active           Boolean      @default(true)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
+  productDiscounts DiscountProduct[] // NEW: For product-specific discounts
+}
+
+model DiscountProduct {
+  id         String   @id @default(cuid())
+  discountId String
+  productId  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  product    AlyraProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, productId])
+  @@index([discountId])
+  @@index([productId])
 }
 
 model Order {
@@ -192,11 +181,6 @@ model OrderCounter {
   @@map("order_counter")
 }
 
-enum ProductStatus {
-  active
-  draft
-  archived
-}
 
 enum OrderStatus {
   pending

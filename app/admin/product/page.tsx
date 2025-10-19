@@ -180,6 +180,7 @@ export default function ProductPage() {
           type: 'Refill',
           status: 'Active',
           inventory: 0,
+          priceMinor: 0,
         });
       } else {
         console.error('Failed to create product');

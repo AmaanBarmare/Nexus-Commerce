@@ -61,6 +61,7 @@ export const createDiscountSchema = z.object({
   perCustomer: z.boolean().default(true),
   minSubtotalMinor: z.number().int().min(0).optional(),
   active: z.boolean().default(true),
+  productIds: z.array(z.string()).optional(), // NEW: For product-specific discounts
 });
 
 export const updateProductSchema = z.object({
@@ -72,5 +73,17 @@ export const updateProductSchema = z.object({
   compareAtMinor: z.number().int().positive().optional(),
   inventoryQty: z.number().int().min(0).optional(),
   status: z.enum(['active', 'draft', 'archived']).optional(),
+});
+
+export const createCustomerSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  phone: z.string().optional(),
+  acceptsEmail: z.boolean().default(false),
+});
+
+export const deleteCustomersSchema = z.object({
+  customerIds: z.array(z.string()).min(1, 'At least one customer ID is required'),
 });
 

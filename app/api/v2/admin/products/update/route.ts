@@ -30,26 +30,25 @@ export async function PATCH(request: NextRequest) {
     const { productId, variantId, ...updates } = validation.data;
 
     if (variantId) {
-      // Update variant
-      const variant = await prisma.productVariant.update({
+      // Update AlyraProduct (treating it as variant for compatibility)
+      const product = await prisma.alyraProduct.update({
         where: { id: variantId },
         data: {
-          ...(updates.title && { title: updates.title }),
+          ...(updates.title && { name: updates.title }),
           ...(updates.priceMinor !== undefined && { priceMinor: updates.priceMinor }),
-          ...(updates.compareAtMinor !== undefined && { compareAtMinor: updates.compareAtMinor }),
-          ...(updates.inventoryQty !== undefined && { inventoryQty: updates.inventoryQty }),
+          ...(updates.inventoryQty !== undefined && { inventory: updates.inventoryQty }),
         },
       });
 
-      return NextResponse.json({ success: true, variant });
+      return NextResponse.json({ success: true, variant: product });
     } else if (productId) {
-      // Update product
-      const product = await prisma.product.update({
+      // Update AlyraProduct
+      const product = await prisma.alyraProduct.update({
         where: { id: productId },
         data: {
-          ...(updates.title && { title: updates.title }),
-          ...(updates.description !== undefined && { description: updates.description }),
-          ...(updates.status && { status: updates.status }),
+          ...(updates.title && { name: updates.title }),
+          ...(updates.priceMinor !== undefined && { priceMinor: updates.priceMinor }),
+          ...(updates.inventoryQty !== undefined && { inventory: updates.inventoryQty }),
         },
       });
 

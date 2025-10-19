@@ -52,14 +52,14 @@ export async function POST(request: NextRequest) {
 
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Verify inventory and lock variants
+      // Verify inventory and lock products
       for (const item of cart.items) {
-        const variant = await tx.productVariant.findUnique({
-          where: { id: item.variantId },
-          select: { inventoryQty: true },
+        const product = await tx.alyraProduct.findUnique({
+          where: { id: item.productId },
+          select: { inventory: true },
         });
 
-        if (!variant || variant.inventoryQty < item.qty) {
+        if (!product || product.inventory < item.qty) {
           throw new Error(`Insufficient inventory for ${item.title}`);
         }
       }
@@ -144,9 +144,9 @@ export async function POST(request: NextRequest) {
 
       // Decrement inventory
       for (const item of cart.items) {
-        await tx.productVariant.update({
-          where: { id: item.variantId },
-          data: { inventoryQty: { decrement: item.qty } },
+        await tx.alyraProduct.update({
+          where: { id: item.productId },
+          data: { inventory: { decrement: item.qty } },
         });
       }
 

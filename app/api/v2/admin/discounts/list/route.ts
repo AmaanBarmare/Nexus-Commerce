@@ -14,7 +14,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const discounts = await prisma.discount.findMany({
-      where: { active: true },
+      include: {
+        productDiscounts: {
+          include: {
+            product: true
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' },
     });
 

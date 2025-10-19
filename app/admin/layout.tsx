@@ -47,7 +47,7 @@ const navigation = [
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
   { name: 'Products', href: '/admin/product', icon: Box },
   { name: 'Discounts', href: '/admin/discounts', icon: Tag },
-  { name: 'Subscribers', href: '/admin/subscribers', icon: Users },
+  { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 

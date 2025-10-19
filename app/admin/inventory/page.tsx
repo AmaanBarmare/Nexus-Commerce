@@ -25,9 +25,16 @@ export default function InventoryPage() {
     try {
       const res = await fetch('/api/v2/products/list');
       const data = await res.json();
-      const allVariants = data.products.flatMap((p: any) =>
-        p.variants.map((v: any) => ({ ...v, productTitle: p.title }))
-      );
+      // Convert AlyraProduct to variant-like format for compatibility
+      const allVariants = data.products.map((p: any) => ({
+        id: p.id,
+        sku: p.sku,
+        title: p.name,
+        variantTitle: p.type,
+        inventoryQty: p.inventory,
+        unitPriceMinor: p.priceMinor,
+        productTitle: p.name
+      }));
       setVariants(allVariants);
     } catch (error) {
       console.error('Error loading variants:', error);
