@@ -22,6 +22,15 @@ export async function GET(request: NextRequest) {
       where: { id: orderId },
       include: {
         items: true,
+        customer: {
+          select: { 
+            id: true,
+            email: true, 
+            firstName: true, 
+            lastName: true,
+            phone: true
+          },
+        },
       },
     });
 

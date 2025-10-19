@@ -19,6 +19,7 @@ type AlyraProduct = {
   type: 'Refill' | 'Set';
   status: 'Active' | 'Inactive';
   inventory: number;
+  priceMinor: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -47,6 +48,10 @@ function getTypeColor(type: string) {
   }
 }
 
+function formatPrice(priceMinor: number): string {
+  return `₹${(priceMinor / 100).toFixed(2)}`;
+}
+
 export default function ProductPage() {
   const [productsList, setProductsList] = useState<AlyraProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +68,7 @@ export default function ProductPage() {
     type: 'Refill' as 'Refill' | 'Set',
     status: 'Active' as 'Active' | 'Inactive',
     inventory: 0,
+    priceMinor: 0,
   });
   const [addForm, setAddForm] = useState({
     name: '',
@@ -70,6 +76,7 @@ export default function ProductPage() {
     type: 'Refill' as 'Refill' | 'Set',
     status: 'Active' as 'Active' | 'Inactive',
     inventory: 0,
+    priceMinor: 0,
   });
 
   // Fetch products from API
@@ -101,6 +108,7 @@ export default function ProductPage() {
       type: product.type,
       status: product.status,
       inventory: product.inventory,
+      priceMinor: product.priceMinor,
     });
     setIsEditDialogOpen(true);
   };
@@ -147,6 +155,7 @@ export default function ProductPage() {
       type: 'Refill',
       status: 'Active',
       inventory: 0,
+      priceMinor: 0,
     });
     setIsAddDialogOpen(true);
   };
@@ -192,6 +201,7 @@ export default function ProductPage() {
       type: 'Refill',
       status: 'Active',
       inventory: 0,
+      priceMinor: 0,
     });
   };
 
@@ -314,13 +324,14 @@ export default function ProductPage() {
                 <TableHead>SKU</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Price</TableHead>
                 <TableHead>Inventory</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {productsList.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500">
+                  <TableCell colSpan={7} className="text-center text-gray-500">
                     No products found
                   </TableCell>
                 </TableRow>
@@ -352,6 +363,7 @@ export default function ProductPage() {
                     <TableCell>
                       <Badge className={getStatusColor(product.status)}>{product.status}</Badge>
                     </TableCell>
+                    <TableCell className="font-medium text-green-600">{formatPrice(product.priceMinor)}</TableCell>
                     <TableCell>{product.inventory} in stock</TableCell>
                   </TableRow>
                 ))
@@ -423,6 +435,17 @@ export default function ProductPage() {
                 placeholder="Enter inventory quantity"
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="add-price">Price (₹)</Label>
+              <Input
+                id="add-price"
+                type="number"
+                step="0.01"
+                value={addForm.priceMinor / 100}
+                onChange={(e) => setAddForm(prev => ({ ...prev, priceMinor: Math.round((parseFloat(e.target.value) || 0) * 100) }))}
+                placeholder="Enter price (e.g., 1849.00)"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelAdd} disabled={saving}>
@@ -492,6 +515,17 @@ export default function ProductPage() {
                 type="number"
                 value={editForm.inventory}
                 onChange={(e) => setEditForm(prev => ({ ...prev, inventory: parseInt(e.target.value) || 0 }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="price">Price (₹)</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                value={editForm.priceMinor / 100}
+                onChange={(e) => setEditForm(prev => ({ ...prev, priceMinor: Math.round((parseFloat(e.target.value) || 0) * 100) }))}
+                placeholder="Enter price (e.g., 1849.00)"
               />
             </div>
           </div>

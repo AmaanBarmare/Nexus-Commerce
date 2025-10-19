@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       create: {
         code: data.code,
         type: data.type,
+        scope: data.scope,
         value: data.value,
         startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
         endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
       },
       update: {
         type: data.type,
+        scope: data.scope,
         value: data.value,
         startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
         endsAt: data.endsAt ? new Date(data.endsAt) : undefined,

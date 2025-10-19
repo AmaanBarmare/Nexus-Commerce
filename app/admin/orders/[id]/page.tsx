@@ -10,6 +10,8 @@ import { padOrderNumber, formatMoney } from '@/lib/util';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ArrowLeft } from 'lucide-react';
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -34,12 +36,16 @@ export default function OrderDetailPage() {
   const [fulfillOpen, setFulfillOpen] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [fulfilling, setFulfilling] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [updatingNotes, setUpdatingNotes] = useState(false);
 
   useEffect(() => {
     fetch(`/api/v2/orders/get?id=${params.id}`)
       .then((res) => res.json())
       .then((data) => {
         setOrder(data.order);
+        setNotes(data.order.notes || '');
         setLoading(false);
       })
       .catch((err) => {
@@ -77,6 +83,33 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handleUpdateNotes = async () => {
+    setUpdatingNotes(true);
+    try {
+      const res = await fetch('/api/v2/admin/orders/update-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          notes: notes.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setOrder(data.order);
+        setNotesOpen(false);
+      } else {
+        alert('Failed to update notes');
+      }
+    } catch (error) {
+      console.error('Error updating notes:', error);
+      alert('Failed to update notes');
+    } finally {
+      setUpdatingNotes(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-12">Loading...</div>;
   }
@@ -89,6 +122,18 @@ export default function OrderDetailPage() {
 
   return (
     <div className="space-y-6">
+      <div className="mb-4">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => router.push('/admin/orders')}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Orders
+        </Button>
+      </div>
+      
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Order #{padOrderNumber(order.orderNumber)}</h1>
@@ -181,23 +226,41 @@ export default function OrderDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Status</CardTitle>
+              <CardTitle>Order Information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div>
-                <div className="text-sm text-gray-500 mb-1">Order Status</div>
-                <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                <div className="text-sm text-gray-500 mb-1">Order Number</div>
+                <div className="font-medium">#{padOrderNumber(order.orderNumber)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Order Date</div>
+                <div className="text-sm">
+                  {new Date(order.createdAt).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </div>
               </div>
               <div>
                 <div className="text-sm text-gray-500 mb-1">Payment Status</div>
-                <Badge className={getStatusColor(order.paymentStatus)}>{order.paymentStatus}</Badge>
+                <Badge className={getStatusColor(order.paymentStatus)}>{order.paymentStatus.toUpperCase()}</Badge>
               </div>
               <div>
                 <div className="text-sm text-gray-500 mb-1">Fulfillment Status</div>
                 <Badge className={getStatusColor(order.fulfillmentStatus)}>
-                  {order.fulfillmentStatus}
+                  {order.fulfillmentStatus.toUpperCase()}
                 </Badge>
               </div>
+              {order.paymentRef && (
+                <div>
+                  <div className="text-sm text-gray-500 mb-1">Payment Reference</div>
+                  <div className="text-sm font-mono">{order.paymentRef}</div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -205,8 +268,18 @@ export default function OrderDetailPage() {
             <CardHeader>
               <CardTitle>Customer</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-sm">{order.email}</div>
+            <CardContent className="space-y-2">
+              <div className="text-sm">
+                <div className="font-medium">
+                  {order.customer?.firstName && order.customer?.lastName 
+                    ? `${order.customer.firstName} ${order.customer.lastName}`
+                    : order.customer?.firstName || 'Guest'}
+                </div>
+                <div className="text-gray-500">{order.email}</div>
+                {order.customer?.phone && (
+                  <div className="text-gray-500">{order.customer.phone}</div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -215,12 +288,43 @@ export default function OrderDetailPage() {
               <CardTitle>Shipping Address</CardTitle>
             </CardHeader>
             <CardContent className="text-sm space-y-1">
-              <div>{shippingAddress.line1}</div>
+              {shippingAddress.line1 && <div>{shippingAddress.line1}</div>}
               {shippingAddress.line2 && <div>{shippingAddress.line2}</div>}
-              <div>
-                {shippingAddress.city}, {shippingAddress.state} {shippingAddress.postalCode}
+              {(shippingAddress.city || shippingAddress.state || shippingAddress.zipCode) && (
+                <div>
+                  {[shippingAddress.city, shippingAddress.state, shippingAddress.zipCode].filter(Boolean).join(', ')}
+                </div>
+              )}
+              {shippingAddress.country && <div>{shippingAddress.country}</div>}
+              {!shippingAddress.line1 && !shippingAddress.city && (
+                <div className="text-gray-500 italic">No shipping address provided</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Order Notes</CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setNotesOpen(true)}
+                >
+                  {order.notes ? 'Edit Notes' : 'Add Notes'}
+                </Button>
               </div>
-              <div>{shippingAddress.country}</div>
+            </CardHeader>
+            <CardContent>
+              {order.notes ? (
+                <div className="text-sm whitespace-pre-wrap bg-gray-50 p-3 rounded-md">
+                  {order.notes}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">
+                  No notes added yet. Click "Add Notes" to add some.
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -249,6 +353,41 @@ export default function OrderDetailPage() {
             </Button>
             <Button onClick={handleFulfill} disabled={fulfilling}>
               {fulfilling ? 'Fulfilling...' : 'Mark as Fulfilled'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notes Dialog */}
+      <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {order.notes ? 'Edit Order Notes' : 'Add Order Notes'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Add any notes about this order..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={6}
+                className="resize-none"
+              />
+              <p className="text-sm text-gray-500">
+                Use this space to add Razorpay Payment ID, Order ID, or any other relevant notes for this order.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNotesOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateNotes} disabled={updatingNotes}>
+              {updatingNotes ? 'Saving...' : 'Save Notes'}
             </Button>
           </DialogFooter>
         </DialogContent>

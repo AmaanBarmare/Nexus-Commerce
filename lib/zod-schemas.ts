@@ -53,6 +53,7 @@ export const fulfillOrderSchema = z.object({
 export const createDiscountSchema = z.object({
   code: z.string().min(1, 'Code is required').toUpperCase(),
   type: z.enum(['percent', 'fixed']),
+  scope: z.enum(['PRODUCT', 'ORDER']).default('ORDER'),
   value: z.number().int().min(1, 'Value must be positive'),
   startsAt: z.string().datetime().optional(),
   endsAt: z.string().datetime().optional(),

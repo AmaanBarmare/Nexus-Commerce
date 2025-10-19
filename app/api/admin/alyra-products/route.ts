@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, sku, type, status, inventory } = body;
+    const { name, sku, type, status, inventory, priceMinor } = body;
 
     const product = await prisma.alyraProduct.create({
       data: {
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
         type,
         status,
         inventory: parseInt(inventory) || 0,
+        priceMinor: parseInt(priceMinor) || 0,
       },
     });
 

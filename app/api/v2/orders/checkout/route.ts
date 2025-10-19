@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { withCors, preflight } from '@/lib/cors';
 import { getCartId } from '@/lib/util';
 import { checkoutSchema } from '@/lib/zod-schemas';
+import { getNextOrderNumber } from '@/lib/order-counter';
 
 export async function OPTIONS() {
   return preflight();
@@ -94,11 +95,8 @@ export async function POST(request: NextRequest) {
       const taxMinor = 0; // No tax for now
       const totalMinor = subtotalMinor - discountMinor + shippingMinor + taxMinor;
 
-      // Get next order number from sequence
-      const orderNumberResult = await tx.$queryRaw<Array<{ nextval: bigint }>>`
-        SELECT nextval('order_number_seq')
-      `;
-      const orderNumber = Number(orderNumberResult[0].nextval);
+      // Get next monotonic order number
+      const orderNumber = await getNextOrderNumber();
 
       // Find or create customer
       let customer = await tx.customer.findUnique({

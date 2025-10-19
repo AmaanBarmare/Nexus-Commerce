@@ -5,11 +5,22 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Create order sequence if it doesn't exist
-  await prisma.$executeRawUnsafe(`
-    CREATE SEQUENCE IF NOT EXISTS order_number_seq START 1;
-  `);
-  console.log('✅ Order sequence created');
+  // Order counter will be initialized automatically when first order is created
+  console.log('✅ Order counter system ready');
+
+  // Update existing products with default prices
+  const allProducts = await prisma.alyraProduct.findMany();
+  
+  for (const product of allProducts) {
+    if ((product as any).priceMinor === 0) {
+      const defaultPrice = product.type === AlyraProductType.Refill ? 124900 : 184900;
+      await prisma.alyraProduct.update({
+        where: { id: product.id },
+        data: { priceMinor: defaultPrice } as any,
+      });
+    }
+  }
+  console.log('✅ Updated existing products with default prices');
 
   // Create Alyra products
   const alyraProducts = [
@@ -20,6 +31,7 @@ async function main() {
       type: AlyraProductType.Refill,
       status: AlyraProductStatus.Active,
       inventory: 100,
+      priceMinor: 124900, // ₹1,249.00
     },
     {
       name: 'Riva Azul Refill',
@@ -27,6 +39,7 @@ async function main() {
       type: AlyraProductType.Refill,
       status: AlyraProductStatus.Active,
       inventory: 100,
+      priceMinor: 124900, // ₹1,249.00
     },
     {
       name: 'Fruit d\'Amour Refill',
@@ -34,6 +47,7 @@ async function main() {
       type: AlyraProductType.Refill,
       status: AlyraProductStatus.Active,
       inventory: 93,
+      priceMinor: 124900, // ₹1,249.00
     },
     // Sets - Black Cases
     {
@@ -42,6 +56,7 @@ async function main() {
       type: AlyraProductType.Set,
       status: AlyraProductStatus.Active,
       inventory: 400,
+      priceMinor: 184900, // ₹1,849.00
     },
     {
       name: 'Riva Azul Set (Black Case)',
@@ -49,6 +64,7 @@ async function main() {
       type: AlyraProductType.Set,
       status: AlyraProductStatus.Active,
       inventory: 400,
+      priceMinor: 184900, // ₹1,849.00
     },
     {
       name: 'Fruit d\'Amour Set (Black Case)',
@@ -56,6 +72,7 @@ async function main() {
       type: AlyraProductType.Set,
       status: AlyraProductStatus.Active,
       inventory: 399,
+      priceMinor: 184900, // ₹1,849.00
     },
     // Sets - White Cases
     {
@@ -64,6 +81,7 @@ async function main() {
       type: AlyraProductType.Set,
       status: AlyraProductStatus.Active,
       inventory: 399,
+      priceMinor: 184900, // ₹1,849.00
     },
     {
       name: 'Riva Azul Set (White Case)',
@@ -71,6 +89,7 @@ async function main() {
       type: AlyraProductType.Set,
       status: AlyraProductStatus.Active,
       inventory: 399,
+      priceMinor: 184900, // ₹1,849.00
     },
     {
       name: 'Fruit d\'Amour Set (White Case)',
@@ -78,6 +97,7 @@ async function main() {
       type: AlyraProductType.Set,
       status: AlyraProductStatus.Active,
       inventory: 399,
+      priceMinor: 184900, // ₹1,849.00
     },
   ];
 

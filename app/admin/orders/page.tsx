@@ -46,7 +46,7 @@ function getPaymentStatusColor(status: string) {
 function getFulfillmentStatusColor(status: string) {
   switch (status) {
     case 'fulfilled':
-      return 'bg-green-100 text-green-800';
+      return 'bg-blue-100 text-blue-800';
     case 'partial':
       return 'bg-blue-100 text-blue-800';
     case 'unfulfilled':
@@ -65,6 +65,7 @@ interface AlyraProduct {
   type: string;
   status: string;
   inventory: number;
+  priceMinor: number;
 }
 
 interface OrderItem {
@@ -101,6 +102,7 @@ export default function OrdersPage() {
     paymentStatus: 'paid',
     fulfillmentStatus: 'unfulfilled',
     status: 'paid',
+    notes: '',
     shippingAddress: {
       line1: '',
       line2: '',
@@ -114,6 +116,64 @@ export default function OrdersPage() {
   const [selectedDiscountId, setSelectedDiscountId] = useState<string>('none');
   const [stateSearch, setStateSearch] = useState('');
   const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({
+    email: false,
+    phone: false
+  });
+
+  // Validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Expected format: "+91 XXXXXXXXXX"
+    const phoneRegex = /^\+91 \d{10}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const formatPhoneNumber = (value: string): string => {
+    // If the value is empty or just +91, return it as is
+    if (!value || value === '+91') {
+      return value;
+    }
+
+    // Extract only digits
+    const digits = value.replace(/\D/g, '');
+    
+    // If no digits, return empty
+    if (digits.length === 0) {
+      return '';
+    }
+
+    // Handle different input patterns
+    let phoneDigits = digits;
+    
+    // If user typed 91 followed by 10 digits, remove the leading 91
+    if (digits.startsWith('91') && digits.length === 12) {
+      phoneDigits = digits.substring(2);
+    }
+    // If user typed 0 followed by 10 digits, remove the leading 0
+    else if (digits.startsWith('0') && digits.length === 11) {
+      phoneDigits = digits.substring(1);
+    }
+    // If user typed just 10 digits, use them as is
+    else if (digits.length === 10) {
+      phoneDigits = digits;
+    }
+    // If user typed less than 10 digits, use what they have
+    else if (digits.length < 10) {
+      phoneDigits = digits;
+    }
+    // If more than 10 digits, truncate to 10
+    else {
+      phoneDigits = digits.substring(0, 10);
+    }
+
+    // Format as +91 XXXXXXXXXX
+    return `+91 ${phoneDigits}`;
+  };
 
   const indianStates = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
@@ -180,6 +240,18 @@ export default function OrdersPage() {
       return;
     }
 
+    // Validate email format
+    if (!validateEmail(orderForm.customerEmail)) {
+      setValidationErrors(prev => ({ ...prev, email: true }));
+      return;
+    }
+
+    // Validate phone number format
+    if (!validatePhone(orderForm.customerPhone)) {
+      setValidationErrors(prev => ({ ...prev, phone: true }));
+      return;
+    }
+
     setCreating(true);
     try {
       const response = await fetch('/api/v2/admin/orders/create', {
@@ -207,6 +279,7 @@ export default function OrdersPage() {
           paymentStatus: 'paid',
           fulfillmentStatus: 'unfulfilled',
           status: 'paid',
+          notes: '',
           shippingAddress: {
             line1: '',
             line2: '',
@@ -237,24 +310,41 @@ export default function OrdersPage() {
       title: product.name,
       variantTitle: product.type,
       sku: product.sku,
-      unitPriceMinor: 0, // Will be set by user
+      unitPriceMinor: product.priceMinor, // Use product's price from database
       qty: 1,
-      lineTotalMinor: 0,
+      lineTotalMinor: product.priceMinor, // Calculate line total
     };
     
-    setOrderForm(prev => ({
-      ...prev,
-      items: [...prev.items, newItem]
-    }));
+    setOrderForm(prev => {
+      const newItems = [...prev.items, newItem];
+      // Recalculate totals
+      const subtotalMinor = newItems.reduce((sum, item) => {
+        const lineTotal = isNaN(item.lineTotalMinor) ? 0 : item.lineTotalMinor;
+        return sum + lineTotal;
+      }, 0);
+      const totalMinor = subtotalMinor + prev.discountMinor + prev.shippingMinor + prev.taxMinor;
+      
+      return {
+        ...prev,
+        items: newItems,
+        subtotalMinor,
+        totalMinor
+      };
+    });
   };
 
   const updateItem = (index: number, field: keyof OrderItem, value: any) => {
+    // Prevent price changes - price should only come from product data
+    if (field === 'unitPriceMinor') {
+      return;
+    }
+    
     setOrderForm(prev => {
       const newItems = [...prev.items];
       newItems[index] = { ...newItems[index], [field]: value };
       
       // Recalculate line total
-      if (field === 'unitPriceMinor' || field === 'qty') {
+      if (field === 'qty') {
         const unitPrice = isNaN(newItems[index].unitPriceMinor) ? 0 : newItems[index].unitPriceMinor;
         const qty = isNaN(newItems[index].qty) ? 0 : newItems[index].qty;
         newItems[index].lineTotalMinor = unitPrice * qty;
@@ -376,6 +466,7 @@ export default function OrdersPage() {
                   paymentStatus: 'paid',
                   fulfillmentStatus: 'unfulfilled',
                   status: 'paid',
+                  notes: '',
                   shippingAddress: {
                     line1: '',
                     line2: '',
@@ -429,11 +520,15 @@ export default function OrdersPage() {
                   </TableRow>
                 ) : (
                   orders.map((order) => (
-                    <TableRow key={order.id} className="cursor-pointer hover:bg-gray-50">
+                    <TableRow 
+                      key={order.id} 
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                    >
                       <TableCell>
-                        <Link href={`/admin/orders/${order.id}`} className="font-medium hover:underline">
+                        <span className="font-medium">
                           #{padOrderNumber(order.orderNumber)}
-                        </Link>
+                        </span>
                       </TableCell>
                       <TableCell>{getCustomerName(order)}</TableCell>
                       <TableCell>{order.email}</TableCell>
@@ -441,12 +536,12 @@ export default function OrdersPage() {
                       <TableCell>{formatMoney(order.totalMinor)}</TableCell>
                       <TableCell>
                         <Badge className={getPaymentStatusColor(order.paymentStatus)}>
-                          {order.paymentStatus}
+                          {order.paymentStatus.toUpperCase()}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge className={getFulfillmentStatusColor(order.fulfillmentStatus)}>
-                          {order.fulfillmentStatus}
+                          {order.fulfillmentStatus.toUpperCase()}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -487,6 +582,7 @@ export default function OrdersPage() {
             paymentStatus: 'paid',
             fulfillmentStatus: 'unfulfilled',
             status: 'paid',
+            notes: '',
             shippingAddress: {
               line1: '',
               line2: '',
@@ -518,9 +614,16 @@ export default function OrdersPage() {
                     id="customerEmail"
                     type="email"
                     value={orderForm.customerEmail}
-                    onChange={(e) => setOrderForm(prev => ({ ...prev, customerEmail: e.target.value }))}
+                    onChange={(e) => {
+                      setOrderForm(prev => ({ ...prev, customerEmail: e.target.value }));
+                      setValidationErrors(prev => ({ ...prev, email: false }));
+                    }}
                     placeholder="customer@example.com"
+                    className={validationErrors.email ? 'border-red-500' : ''}
                   />
+                  {validationErrors.email && (
+                    <p className="text-red-500 text-sm mt-1">Please enter a valid email address</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="customerPhone">
@@ -530,9 +633,24 @@ export default function OrdersPage() {
                     id="customerPhone"
                     type="tel"
                     value={orderForm.customerPhone}
-                    onChange={(e) => setOrderForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Only format if user is typing digits, not when they're deleting
+                      if (value.length > 0 && /\d/.test(value)) {
+                        const formatted = formatPhoneNumber(value);
+                        setOrderForm(prev => ({ ...prev, customerPhone: formatted }));
+                      } else {
+                        setOrderForm(prev => ({ ...prev, customerPhone: value }));
+                      }
+                      setValidationErrors(prev => ({ ...prev, phone: false }));
+                    }}
                     placeholder="+91 9876543210"
+                    maxLength={15}
+                    className={validationErrors.phone ? 'border-red-500' : ''}
                   />
+                  {validationErrors.phone && (
+                    <p className="text-red-500 text-sm mt-1">Please enter a valid phone number with +91 and 10 digits</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="customerFirstName">
@@ -554,6 +672,27 @@ export default function OrdersPage() {
                     placeholder="Doe"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Notes Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Notes</h3>
+              <div>
+                <Label htmlFor="orderNotes">
+                  Order Notes
+                </Label>
+                <textarea
+                  id="orderNotes"
+                  value={orderForm.notes}
+                  onChange={(e) => setOrderForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Additional notes..."
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical min-h-[100px]"
+                  rows={4}
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Use this space to add Razorpay Payment ID, Order ID, or any other relevant notes for this order.
+                </p>
               </div>
             </div>
 
@@ -768,11 +907,8 @@ export default function OrdersPage() {
                             <Input
                               type="number"
                               value={isNaN(item.unitPriceMinor / 100) ? '' : item.unitPriceMinor / 100}
-                              onChange={(e) => {
-                                const value = parseFloat(e.target.value);
-                                updateItem(index, 'unitPriceMinor', isNaN(value) ? 0 : Math.round(value * 100));
-                              }}
-                              className="w-24 h-8"
+                              readOnly
+                              className="w-24 h-8 bg-gray-50 cursor-not-allowed"
                               placeholder="0.00"
                             />
                           </div>
@@ -916,6 +1052,7 @@ export default function OrdersPage() {
                 paymentStatus: 'paid',
                 fulfillmentStatus: 'unfulfilled',
                 status: 'paid',
+                notes: '',
                 shippingAddress: {
                   line1: '',
                   line2: '',

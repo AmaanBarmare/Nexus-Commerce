@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { isAdminUser } from '@/lib/auth';
+import { getNextOrderNumber } from '@/lib/order-counter';
 
 /**
  * Admin-only endpoint to create orders
@@ -38,11 +39,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid order data' }, { status: 400 });
     }
 
-    // Get next order number
-    const orderNumberResult = await prisma.$queryRaw`
-      SELECT nextval('order_number_seq') as order_number;
-    `;
-    const orderNumber = (orderNumberResult as any)[0].order_number;
+    // Get next monotonic order number
+    const orderNumber = await getNextOrderNumber();
 
     // Create or find customer
     let customer = await prisma.customer.findUnique({
