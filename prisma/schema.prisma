@@ -9,18 +9,17 @@ datasource db {
 }
 
 model AlyraProduct {
-  id         String             @id @default(cuid())
-  name       String
-  sku        String             @unique
-  type       AlyraProductType
-  status     AlyraProductStatus @default(Active)
-  inventory  Int                @default(0)
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
-  priceMinor Int                @default(0)
-  discountProducts DiscountProduct[] // NEW: For product-specific discounts
+  id               String             @id @default(cuid())
+  name             String
+  sku              String             @unique
+  type             AlyraProductType
+  status           AlyraProductStatus @default(Active)
+  inventory        Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  priceMinor       Int                @default(0)
+  discountProducts DiscountProduct[]
 }
-
 
 model Customer {
   id           String    @id @default(cuid())
@@ -53,30 +52,30 @@ model Address {
 }
 
 model Discount {
-  id               String       @id @default(cuid())
-  code             String       @unique
+  id               String            @id @default(cuid())
+  code             String            @unique
   type             DiscountType
-  scope            DiscountScope @default(ORDER) // NEW: PRODUCT or ORDER
   value            Int
   startsAt         DateTime?
   endsAt           DateTime?
   usageLimit       Int?
-  perCustomer      Boolean      @default(true)
+  perCustomer      Boolean           @default(true)
   minSubtotalMinor Int?
-  timesUsed        Int          @default(0)
-  active           Boolean      @default(true)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  productDiscounts DiscountProduct[] // NEW: For product-specific discounts
+  timesUsed        Int               @default(0)
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  scope            DiscountScope     @default(ORDER)
+  productDiscounts DiscountProduct[]
 }
 
 model DiscountProduct {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   discountId String
   productId  String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  discount   Discount     @relation(fields: [discountId], references: [id], onDelete: Cascade)
   product    AlyraProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([discountId, productId])
@@ -103,9 +102,10 @@ model Order {
   razorpayOrderId   String?           @unique
   shippingAddress   Json?
   billingAddress    Json?
-  notes             String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
+  notes             String?
+  deliveryStatus    DeliveryStatus    @default(pending)
   customer          Customer?         @relation(fields: [customerId], references: [id])
   items             OrderItem[]
 
@@ -181,7 +181,6 @@ model OrderCounter {
   @@map("order_counter")
 }
 
-
 enum OrderStatus {
   pending
   paid
@@ -198,9 +197,14 @@ enum PaymentStatus {
 
 enum FulfillmentStatus {
   unfulfilled
-  partial
   fulfilled
   returned
+}
+
+enum DeliveryStatus {
+  pending
+  shipped
+  delivered
 }
 
 enum DiscountType {
@@ -209,8 +213,8 @@ enum DiscountType {
 }
 
 enum DiscountScope {
-  PRODUCT  // Amount off products
-  ORDER    // Amount off order
+  PRODUCT
+  ORDER
 }
 
 enum AlyraProductType {

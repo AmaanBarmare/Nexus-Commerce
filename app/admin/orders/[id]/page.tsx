@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 
 function getStatusColor(status: string) {
@@ -19,10 +20,27 @@ function getStatusColor(status: string) {
       return 'bg-green-100 text-green-800';
     case 'fulfilled':
       return 'bg-blue-100 text-blue-800';
+    case 'unfulfilled':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'returned':
+      return 'bg-red-100 text-red-800';
     case 'pending':
       return 'bg-yellow-100 text-yellow-800';
     case 'cancelled':
       return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
+function getDeliveryStatusColor(status: string) {
+  switch (status) {
+    case 'delivered':
+      return 'bg-green-100 text-green-800';
+    case 'shipped':
+      return 'bg-blue-100 text-blue-800';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }
@@ -39,6 +57,13 @@ export default function OrderDetailPage() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [updatingNotes, setUpdatingNotes] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusForm, setStatusForm] = useState({
+    paymentStatus: '',
+    fulfillmentStatus: '',
+    deliveryStatus: '',
+  });
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
     fetch(`/api/v2/orders/get?id=${params.id}`)
@@ -46,6 +71,12 @@ export default function OrderDetailPage() {
       .then((data) => {
         setOrder(data.order);
         setNotes(data.order.notes || '');
+        // Initialize status form with current order statuses
+        setStatusForm({
+          paymentStatus: data.order.paymentStatus,
+          fulfillmentStatus: data.order.fulfillmentStatus,
+          deliveryStatus: data.order.deliveryStatus || 'pending',
+        });
         setLoading(false);
       })
       .catch((err) => {
@@ -53,6 +84,17 @@ export default function OrderDetailPage() {
         setLoading(false);
       });
   }, [params.id]);
+
+  // Reset status form when dialog opens
+  useEffect(() => {
+    if (statusDialogOpen && order) {
+      setStatusForm({
+        paymentStatus: order.paymentStatus,
+        fulfillmentStatus: order.fulfillmentStatus,
+        deliveryStatus: order.deliveryStatus || 'pending',
+      });
+    }
+  }, [statusDialogOpen, order]);
 
   const handleFulfill = async () => {
     setFulfilling(true);
@@ -108,6 +150,87 @@ export default function OrderDetailPage() {
     } finally {
       setUpdatingNotes(false);
     }
+  };
+
+  const handleUpdateAllStatuses = async () => {
+    if (!order) return;
+
+    setUpdatingStatus(true);
+    try {
+      // Update each status that has changed
+      const updatePromises = [];
+
+      if (statusForm.paymentStatus !== order.paymentStatus) {
+        updatePromises.push(
+          fetch('/api/v2/admin/orders/update-payment-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: order.id,
+              paymentStatus: statusForm.paymentStatus,
+            }),
+          })
+        );
+      }
+
+      if (statusForm.fulfillmentStatus !== order.fulfillmentStatus) {
+        updatePromises.push(
+          fetch('/api/v2/admin/orders/update-fulfillment-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: order.id,
+              fulfillmentStatus: statusForm.fulfillmentStatus,
+            }),
+          })
+        );
+      }
+
+      if (statusForm.deliveryStatus !== (order.deliveryStatus || 'pending')) {
+        updatePromises.push(
+          fetch('/api/v2/admin/orders/update-delivery-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: order.id,
+              deliveryStatus: statusForm.deliveryStatus,
+            }),
+          })
+        );
+      }
+
+      if (updatePromises.length === 0) {
+        setUpdatingStatus(false);
+        return;
+      }
+
+      const results = await Promise.all(updatePromises);
+      const failed = results.filter(r => !r.ok);
+
+      if (failed.length === 0) {
+        // Refresh order data
+        const updatedOrder = await fetch(`/api/v2/orders/get?id=${params.id}`).then(r => r.json());
+        setOrder(updatedOrder.order);
+        setStatusDialogOpen(false);
+      } else {
+        alert('Failed to update some statuses');
+      }
+    } catch (error) {
+      console.error('Error updating statuses:', error);
+      alert('Failed to update statuses');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  // Check if statuses have changed
+  const hasStatusChanges = () => {
+    if (!order) return false;
+    return (
+      statusForm.paymentStatus !== order.paymentStatus ||
+      statusForm.fulfillmentStatus !== order.fulfillmentStatus ||
+      statusForm.deliveryStatus !== (order.deliveryStatus || 'pending')
+    );
   };
 
   if (loading) {
@@ -247,13 +370,31 @@ export default function OrderDetailPage() {
               </div>
               <div>
                 <div className="text-sm text-gray-500 mb-1">Payment Status</div>
-                <Badge className={getStatusColor(order.paymentStatus)}>{order.paymentStatus.toUpperCase()}</Badge>
+                <Badge className={getStatusColor(order.paymentStatus)}>
+                  {order.paymentStatus.toUpperCase()}
+                </Badge>
               </div>
               <div>
                 <div className="text-sm text-gray-500 mb-1">Fulfillment Status</div>
                 <Badge className={getStatusColor(order.fulfillmentStatus)}>
                   {order.fulfillmentStatus.toUpperCase()}
                 </Badge>
+              </div>
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Delivery Status</div>
+                <Badge className={getDeliveryStatusColor(order.deliveryStatus || 'pending')}>
+                  {(order.deliveryStatus || 'pending').toUpperCase()}
+                </Badge>
+              </div>
+              <div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setStatusDialogOpen(true)}
+                >
+                  Change Status
+                </Button>
               </div>
               {order.paymentRef && (
                 <div>
@@ -290,9 +431,9 @@ export default function OrderDetailPage() {
             <CardContent className="text-sm space-y-1">
               {shippingAddress.line1 && <div>{shippingAddress.line1}</div>}
               {shippingAddress.line2 && <div>{shippingAddress.line2}</div>}
-              {(shippingAddress.city || shippingAddress.state || shippingAddress.zipCode) && (
+              {(shippingAddress.city || shippingAddress.state || shippingAddress.postalCode) && (
                 <div>
-                  {[shippingAddress.city, shippingAddress.state, shippingAddress.zipCode].filter(Boolean).join(', ')}
+                  {[shippingAddress.city, shippingAddress.state, shippingAddress.postalCode].filter(Boolean).join(', ')}
                 </div>
               )}
               {shippingAddress.country && <div>{shippingAddress.country}</div>}
@@ -388,6 +529,73 @@ export default function OrderDetailPage() {
             </Button>
             <Button onClick={handleUpdateNotes} disabled={updatingNotes}>
               {updatingNotes ? 'Saving...' : 'Save Notes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Status Dialog */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Order Status</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="payment-status">Payment Status</Label>
+              <Select 
+                value={statusForm.paymentStatus} 
+                onValueChange={(value) => setStatusForm(prev => ({ ...prev, paymentStatus: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unpaid">Unpaid</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fulfillment-status">Fulfillment Status</Label>
+              <Select 
+                value={statusForm.fulfillmentStatus} 
+                onValueChange={(value) => setStatusForm(prev => ({ ...prev, fulfillmentStatus: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
+                  <SelectItem value="fulfilled">Fulfilled</SelectItem>
+                  <SelectItem value="returned">Returned</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="delivery-status">Delivery Status</Label>
+              <Select 
+                value={statusForm.deliveryStatus} 
+                onValueChange={(value) => setStatusForm(prev => ({ ...prev, deliveryStatus: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusDialogOpen(false)} disabled={updatingStatus}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateAllStatuses} disabled={updatingStatus || !hasStatusChanges()}>
+              {updatingStatus ? 'Updating...' : 'Update'}
             </Button>
           </DialogFooter>
         </DialogContent>

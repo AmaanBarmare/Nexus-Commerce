@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { padOrderNumber, formatMoney } from '@/lib/util';
-import { Plus, Package, Tag, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Package, Tag, Check, ChevronsUpDown, Trash2, AlertTriangle } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -21,6 +21,7 @@ interface Order {
   email: string;
   paymentStatus: string;
   fulfillmentStatus: string;
+  deliveryStatus?: string;
   totalMinor: number;
   createdAt: string;
   items: any[];
@@ -47,12 +48,23 @@ function getFulfillmentStatusColor(status: string) {
   switch (status) {
     case 'fulfilled':
       return 'bg-blue-100 text-blue-800';
-    case 'partial':
-      return 'bg-blue-100 text-blue-800';
     case 'unfulfilled':
       return 'bg-yellow-100 text-yellow-800';
     case 'returned':
       return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
+function getDeliveryStatusColor(status: string) {
+  switch (status) {
+    case 'delivered':
+      return 'bg-green-100 text-green-800';
+    case 'shipped':
+      return 'bg-blue-100 text-blue-800';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }
@@ -91,7 +103,7 @@ export default function OrdersPage() {
     customerEmail: '',
     customerFirstName: '',
     customerLastName: '',
-    customerPhone: '',
+    customerPhone: '+91 ',
     items: [] as OrderItem[],
     subtotalMinor: 0,
     discountMinor: 0,
@@ -101,6 +113,7 @@ export default function OrdersPage() {
     discountCode: '',
     paymentStatus: 'paid',
     fulfillmentStatus: 'unfulfilled',
+    deliveryStatus: 'pending',
     status: 'paid',
     notes: '',
     shippingAddress: {
@@ -108,7 +121,7 @@ export default function OrdersPage() {
       line2: '',
       city: '',
       state: '',
-      zipCode: '',
+      postalCode: '',
       country: 'India'
     }
   });
@@ -118,8 +131,13 @@ export default function OrdersPage() {
   const [showStateDropdown, setShowStateDropdown] = useState(false);
   const [validationErrors, setValidationErrors] = useState({
     email: false,
-    phone: false
+    phone: false,
+    postalCode: false
   });
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   // Validation functions
   const validateEmail = (email: string): boolean => {
@@ -128,50 +146,25 @@ export default function OrdersPage() {
   };
 
   const validatePhone = (phone: string): boolean => {
-    // Expected format: "+91 XXXXXXXXXX"
+    // Expected format: "+91 XXXXXXXXXX" with exactly 10 digits
     const phoneRegex = /^\+91 \d{10}$/;
     return phoneRegex.test(phone);
   };
 
-  const formatPhoneNumber = (value: string): string => {
-    // If the value is empty or just +91, return it as is
-    if (!value || value === '+91') {
-      return value;
-    }
+  const validatePostalCode = (postalCode: string): boolean => {
+    // Must be exactly 6 digits
+    const postalCodeRegex = /^\d{6}$/;
+    return postalCodeRegex.test(postalCode);
+  };
 
-    // Extract only digits
+  const formatPhoneNumber = (value: string): string => {
+    // Extract only digits from the input
     const digits = value.replace(/\D/g, '');
     
-    // If no digits, return empty
-    if (digits.length === 0) {
-      return '';
-    }
-
-    // Handle different input patterns
-    let phoneDigits = digits;
+    // Limit to 10 digits maximum
+    const phoneDigits = digits.substring(0, 10);
     
-    // If user typed 91 followed by 10 digits, remove the leading 91
-    if (digits.startsWith('91') && digits.length === 12) {
-      phoneDigits = digits.substring(2);
-    }
-    // If user typed 0 followed by 10 digits, remove the leading 0
-    else if (digits.startsWith('0') && digits.length === 11) {
-      phoneDigits = digits.substring(1);
-    }
-    // If user typed just 10 digits, use them as is
-    else if (digits.length === 10) {
-      phoneDigits = digits;
-    }
-    // If user typed less than 10 digits, use what they have
-    else if (digits.length < 10) {
-      phoneDigits = digits;
-    }
-    // If more than 10 digits, truncate to 10
-    else {
-      phoneDigits = digits.substring(0, 10);
-    }
-
-    // Format as +91 XXXXXXXXXX
+    // Always format as +91 XXXXXXXXXX
     return `+91 ${phoneDigits}`;
   };
 
@@ -193,6 +186,8 @@ export default function OrdersPage() {
     fetchOrders();
     fetchProducts();
     fetchDiscounts();
+    // Clear selected orders when filter changes
+    setSelectedOrders([]);
   }, [showAll]);
 
   // Sync state search with form state
@@ -252,12 +247,32 @@ export default function OrdersPage() {
       return;
     }
 
+    // Validate postal code if shipping address is provided
+    if (orderForm.shippingAddress.line1 || orderForm.shippingAddress.city || orderForm.shippingAddress.postalCode) {
+      if (!validatePostalCode(orderForm.shippingAddress.postalCode)) {
+        setValidationErrors(prev => ({ ...prev, postalCode: true }));
+        alert('Please enter a valid 6-digit postal code');
+        return;
+      }
+    }
+
     setCreating(true);
     try {
+      // Prepare request body - only include shippingAddress if it has required fields
+      const requestBody = {
+        ...orderForm,
+        shippingAddress: 
+          orderForm.shippingAddress.line1 && 
+          orderForm.shippingAddress.city && 
+          orderForm.shippingAddress.postalCode
+            ? orderForm.shippingAddress
+            : undefined,
+      };
+
       const response = await fetch('/api/v2/admin/orders/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderForm),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -268,7 +283,7 @@ export default function OrdersPage() {
           customerEmail: '',
           customerFirstName: '',
           customerLastName: '',
-          customerPhone: '',
+          customerPhone: '+91 ',
           items: [],
           subtotalMinor: 0,
           discountMinor: 0,
@@ -278,6 +293,7 @@ export default function OrdersPage() {
           discountCode: '',
           paymentStatus: 'paid',
           fulfillmentStatus: 'unfulfilled',
+          deliveryStatus: 'pending',
           status: 'paid',
           notes: '',
           shippingAddress: {
@@ -285,7 +301,7 @@ export default function OrdersPage() {
             line2: '',
             city: '',
             state: '',
-            zipCode: '',
+            postalCode: '',
             country: 'India'
           }
         });
@@ -433,6 +449,66 @@ export default function OrdersPage() {
     }));
   };
 
+  const handleSelectOrder = (orderId: string) => {
+    setSelectedOrders(prev => 
+      prev.includes(orderId) 
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedOrders.length === orders.length && orders.length > 0) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(orders.map(o => o.id));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedOrders.length === 0) return;
+    setDeleteConfirmText('');
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmText !== 'delete') {
+      alert('Please type "delete" to confirm');
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const response = await fetch('/api/v2/admin/orders/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderIds: selectedOrders }),
+      });
+
+      if (response.ok) {
+        await fetchOrders();
+        setSelectedOrders([]);
+        setIsDeleteDialogOpen(false);
+        setDeleteConfirmText('');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to delete orders');
+      }
+    } catch (error) {
+      console.error('Error deleting orders:', error);
+      alert('Failed to delete orders');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setIsDeleteDialogOpen(false);
+    setDeleteConfirmText('');
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -455,7 +531,7 @@ export default function OrdersPage() {
                   customerEmail: '',
                   customerFirstName: '',
                   customerLastName: '',
-                  customerPhone: '',
+                  customerPhone: '+91 ',
                   items: [],
                   subtotalMinor: 0,
                   discountMinor: 0,
@@ -465,6 +541,7 @@ export default function OrdersPage() {
                   discountCode: '',
                   paymentStatus: 'paid',
                   fulfillmentStatus: 'unfulfilled',
+                  deliveryStatus: 'pending',
                   status: 'paid',
                   notes: '',
                   shippingAddress: {
@@ -472,13 +549,23 @@ export default function OrdersPage() {
                     line2: '',
                     city: '',
                     state: '',
-                    zipCode: '',
+                    postalCode: '',
                     country: 'India'
                   }
                 });
               }}>
                 Create Order
               </Button>
+              {selectedOrders.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDeleteSelected}
+                  className="flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete ({selectedOrders.length})
+                </Button>
+              )}
               <Select value={showAll ? 'all' : 'recent'} onValueChange={(value) => setShowAll(value === 'all')}>
                 <SelectTrigger className="w-48">
                   <SelectValue />
@@ -501,6 +588,14 @@ export default function OrdersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrders.length === orders.length && orders.length > 0}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300"
+                    />
+                  </TableHead>
                   <TableHead>Order #</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Email</TableHead>
@@ -508,13 +603,14 @@ export default function OrdersPage() {
                   <TableHead>Total</TableHead>
                   <TableHead>Payment Status</TableHead>
                   <TableHead>Fulfillment Status</TableHead>
+                  <TableHead>Delivery Status</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-gray-500">
+                    <TableCell colSpan={10} className="text-center text-gray-500">
                       No orders yet
                     </TableCell>
                   </TableRow>
@@ -522,29 +618,75 @@ export default function OrdersPage() {
                   orders.map((order) => (
                     <TableRow 
                       key={order.id} 
-                      className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      className="hover:bg-gray-50"
                     >
                       <TableCell>
-                        <span className="font-medium">
-                          #{padOrderNumber(order.orderNumber)}
-                        </span>
+                        <input
+                          type="checkbox"
+                          checked={selectedOrders.includes(order.id)}
+                          onChange={() => handleSelectOrder(order.id)}
+                          className="rounded border-gray-300"
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       </TableCell>
-                      <TableCell>{getCustomerName(order)}</TableCell>
-                      <TableCell>{order.email}</TableCell>
-                      <TableCell>{order.items.length} items</TableCell>
-                      <TableCell>{formatMoney(order.totalMinor)}</TableCell>
-                      <TableCell>
+                      <TableCell 
+                        className="cursor-pointer font-medium"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
+                        #{padOrderNumber(order.orderNumber)}
+                      </TableCell>
+                      <TableCell 
+                        className="cursor-pointer"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
+                        {getCustomerName(order)}
+                      </TableCell>
+                      <TableCell 
+                        className="cursor-pointer"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
+                        {order.email}
+                      </TableCell>
+                      <TableCell 
+                        className="cursor-pointer"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
+                        {order.items.length} items
+                      </TableCell>
+                      <TableCell 
+                        className="cursor-pointer"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
+                        {formatMoney(order.totalMinor)}
+                      </TableCell>
+                      <TableCell 
+                        className="cursor-pointer"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
                         <Badge className={getPaymentStatusColor(order.paymentStatus)}>
                           {order.paymentStatus.toUpperCase()}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell 
+                        className="cursor-pointer"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
                         <Badge className={getFulfillmentStatusColor(order.fulfillmentStatus)}>
                           {order.fulfillmentStatus.toUpperCase()}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell 
+                        className="cursor-pointer"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
+                        <Badge className={getDeliveryStatusColor(order.deliveryStatus || 'pending')}>
+                          {(order.deliveryStatus || 'pending').toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell 
+                        className="cursor-pointer"
+                        onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                      >
                         {new Date(order.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -571,7 +713,7 @@ export default function OrdersPage() {
             customerEmail: '',
             customerFirstName: '',
             customerLastName: '',
-            customerPhone: '',
+            customerPhone: '+91 ',
             items: [],
             subtotalMinor: 0,
             discountMinor: 0,
@@ -581,6 +723,7 @@ export default function OrdersPage() {
             discountCode: '',
             paymentStatus: 'paid',
             fulfillmentStatus: 'unfulfilled',
+            deliveryStatus: 'pending',
             status: 'paid',
             notes: '',
             shippingAddress: {
@@ -613,7 +756,7 @@ export default function OrdersPage() {
                   <Input
                     id="customerEmail"
                     type="email"
-                    value={orderForm.customerEmail}
+                    value={orderForm.customerEmail || ''}
                     onChange={(e) => {
                       setOrderForm(prev => ({ ...prev, customerEmail: e.target.value }));
                       setValidationErrors(prev => ({ ...prev, email: false }));
@@ -629,27 +772,29 @@ export default function OrdersPage() {
                   <Label htmlFor="customerPhone">
                     Phone <span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    id="customerPhone"
-                    type="tel"
-                    value={orderForm.customerPhone}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      // Only format if user is typing digits, not when they're deleting
-                      if (value.length > 0 && /\d/.test(value)) {
-                        const formatted = formatPhoneNumber(value);
+                  <div className="flex">
+                    <div className="flex items-center px-3 py-2 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md text-gray-600 text-sm">
+                      +91
+                    </div>
+                    <Input
+                      id="customerPhone"
+                      type="tel"
+                      value={(orderForm.customerPhone || '+91 ').replace('+91 ', '')}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Only allow digits and limit to 10 characters
+                        const digits = value.replace(/\D/g, '').substring(0, 10);
+                        const formatted = `+91 ${digits}`;
                         setOrderForm(prev => ({ ...prev, customerPhone: formatted }));
-                      } else {
-                        setOrderForm(prev => ({ ...prev, customerPhone: value }));
-                      }
-                      setValidationErrors(prev => ({ ...prev, phone: false }));
-                    }}
-                    placeholder="+91 9876543210"
-                    maxLength={15}
-                    className={validationErrors.phone ? 'border-red-500' : ''}
-                  />
+                        setValidationErrors(prev => ({ ...prev, phone: false }));
+                      }}
+                      placeholder="9876543210"
+                      maxLength={10}
+                      className={`rounded-l-none ${validationErrors.phone ? 'border-red-500' : ''}`}
+                    />
+                  </div>
                   {validationErrors.phone && (
-                    <p className="text-red-500 text-sm mt-1">Please enter a valid phone number with +91 and 10 digits</p>
+                    <p className="text-red-500 text-sm mt-1">Please enter a valid 10-digit phone number</p>
                   )}
                 </div>
                 <div>
@@ -658,7 +803,7 @@ export default function OrdersPage() {
                   </Label>
                   <Input
                     id="customerFirstName"
-                    value={orderForm.customerFirstName}
+                    value={orderForm.customerFirstName || ''}
                     onChange={(e) => setOrderForm(prev => ({ ...prev, customerFirstName: e.target.value }))}
                     placeholder="John"
                   />
@@ -667,7 +812,7 @@ export default function OrdersPage() {
                   <Label htmlFor="customerLastName">Last Name</Label>
                   <Input
                     id="customerLastName"
-                    value={orderForm.customerLastName}
+                    value={orderForm.customerLastName || ''}
                     onChange={(e) => setOrderForm(prev => ({ ...prev, customerLastName: e.target.value }))}
                     placeholder="Doe"
                   />
@@ -684,7 +829,7 @@ export default function OrdersPage() {
                 </Label>
                 <textarea
                   id="orderNotes"
-                  value={orderForm.notes}
+                  value={orderForm.notes || ''}
                   onChange={(e) => setOrderForm(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="Additional notes..."
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical min-h-[100px]"
@@ -712,7 +857,7 @@ export default function OrdersPage() {
                   </Label>
                   <Input
                     id="shippingLine1"
-                    value={orderForm.shippingAddress.line1}
+                    value={orderForm.shippingAddress.line1 || ''}
                     onChange={(e) => setOrderForm(prev => ({
                       ...prev,
                       shippingAddress: { ...prev.shippingAddress, line1: e.target.value }
@@ -727,7 +872,7 @@ export default function OrdersPage() {
                   </Label>
                   <Input
                     id="shippingLine2"
-                    value={orderForm.shippingAddress.line2}
+                    value={orderForm.shippingAddress.line2 || ''}
                     onChange={(e) => setOrderForm(prev => ({
                       ...prev,
                       shippingAddress: { ...prev.shippingAddress, line2: e.target.value }
@@ -743,7 +888,7 @@ export default function OrdersPage() {
                     </Label>
                     <Input
                       id="shippingCity"
-                      value={orderForm.shippingAddress.city}
+                      value={orderForm.shippingAddress.city || ''}
                       onChange={(e) => setOrderForm(prev => ({
                         ...prev,
                         shippingAddress: { ...prev.shippingAddress, city: e.target.value }
@@ -815,19 +960,29 @@ export default function OrdersPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="shippingZipCode" className="font-semibold">
-                      ZIP Code
+                    <Label htmlFor="shippingPostalCode" className="font-semibold">
+                      ZIP Code <span className="text-red-500">*</span>
                     </Label>
                     <Input
-                      id="shippingZipCode"
-                      value={orderForm.shippingAddress.zipCode}
-                      onChange={(e) => setOrderForm(prev => ({
-                        ...prev,
-                        shippingAddress: { ...prev.shippingAddress, zipCode: e.target.value }
-                      }))}
-                      placeholder="Enter ZIP code"
-                      className="mt-1"
+                      id="shippingPostalCode"
+                      type="text"
+                      value={orderForm.shippingAddress.postalCode || ''}
+                      onChange={(e) => {
+                        // Only allow digits and limit to 6 characters
+                        const value = e.target.value.replace(/\D/g, '').substring(0, 6);
+                        setOrderForm(prev => ({
+                          ...prev,
+                          shippingAddress: { ...prev.shippingAddress, postalCode: value }
+                        }));
+                        setValidationErrors(prev => ({ ...prev, postalCode: false }));
+                      }}
+                      placeholder="123456"
+                      maxLength={6}
+                      className={`mt-1 ${validationErrors.postalCode ? 'border-red-500' : ''}`}
                     />
+                    {validationErrors.postalCode && (
+                      <p className="text-red-500 text-sm mt-1">Postal code must be exactly 6 digits</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="shippingCountry" className="font-semibold">
@@ -999,6 +1154,67 @@ export default function OrdersPage() {
               )}
             </div>
 
+            {/* Order Status */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Order Status</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="paymentStatus" className="font-semibold">
+                    Payment Status
+                  </Label>
+                  <Select 
+                    value={orderForm.paymentStatus} 
+                    onValueChange={(value) => setOrderForm(prev => ({ ...prev, paymentStatus: value }))}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unpaid">Unpaid</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="refunded">Refunded</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="fulfillmentStatus" className="font-semibold">
+                    Fulfillment Status
+                  </Label>
+                  <Select 
+                    value={orderForm.fulfillmentStatus} 
+                    onValueChange={(value) => setOrderForm(prev => ({ ...prev, fulfillmentStatus: value }))}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unfulfilled">Unfulfilled</SelectItem>
+                      <SelectItem value="fulfilled">Fulfilled</SelectItem>
+                      <SelectItem value="returned">Returned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="deliveryStatus" className="font-semibold">
+                    Delivery Status
+                  </Label>
+                  <Select 
+                    value={orderForm.deliveryStatus} 
+                    onValueChange={(value) => setOrderForm(prev => ({ ...prev, deliveryStatus: value }))}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="shipped">Shipped</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
             {/* Order Totals */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Order Summary</h3>
@@ -1041,7 +1257,7 @@ export default function OrdersPage() {
                 customerEmail: '',
                 customerFirstName: '',
                 customerLastName: '',
-                customerPhone: '',
+                customerPhone: '+91 ',
                 items: [],
                 subtotalMinor: 0,
                 discountMinor: 0,
@@ -1051,6 +1267,7 @@ export default function OrdersPage() {
                 discountCode: '',
                 paymentStatus: 'paid',
                 fulfillmentStatus: 'unfulfilled',
+                deliveryStatus: 'pending',
                 status: 'paid',
                 notes: '',
                 shippingAddress: {
@@ -1058,7 +1275,7 @@ export default function OrdersPage() {
                   line2: '',
                   city: '',
                   state: '',
-                  zipCode: '',
+                  postalCode: '',
                   country: 'India'
                 }
               });
@@ -1069,6 +1286,68 @@ export default function OrdersPage() {
             </Button>
             <Button onClick={handleCreateOrder} disabled={creating}>
               {creating ? 'Creating...' : 'Create Order'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Delete Orders
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                You are about to delete <strong>{selectedOrders.length}</strong> order(s). This action cannot be undone.
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Note:</strong> Order numbers are sequential and will never be reused, similar to Shopify.
+              </p>
+              <p className="text-sm text-gray-600">
+                Orders to be deleted:
+              </p>
+              <ul className="text-sm text-gray-500 mt-1 max-h-32 overflow-y-auto">
+                {selectedOrders.map(id => {
+                  const order = orders.find(o => o.id === id);
+                  return order ? (
+                    <li key={id} className="flex items-center gap-2">
+                      <span className="font-medium">#{padOrderNumber(order.orderNumber)}</span>
+                      <span>-</span>
+                      <span>{getCustomerName(order)}</span>
+                      <span className="text-gray-400">({formatMoney(order.totalMinor)})</span>
+                    </li>
+                  ) : null;
+                })}
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="delete-confirm">
+                Type <strong>delete</strong> to confirm:
+              </Label>
+              <Input
+                id="delete-confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type 'delete' to confirm"
+                className="font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelDelete} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleConfirmDelete} 
+              disabled={deleting || deleteConfirmText !== 'delete'}
+            >
+              {deleting ? 'Deleting...' : 'Delete Orders'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
           discountCode: cart.discountCode,
           shippingAddress,
           billingAddress: billingAddress || shippingAddress,
+          deliveryStatus: 'pending', // Default delivery status for new orders
           items: {
             create: cart.items.map((item) => ({
               productId: item.productId,

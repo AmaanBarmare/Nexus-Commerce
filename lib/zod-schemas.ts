@@ -9,7 +9,9 @@ export const addressSchema = z.object({
   line2: z.string().optional(),
   city: z.string().min(1, 'City is required'),
   state: z.string().optional(),
-  postalCode: z.string().min(1, 'Postal code is required'),
+  postalCode: z.string()
+    .min(1, 'Postal code is required')
+    .regex(/^\d{6}$/, 'Postal code must be exactly 6 digits'),
   country: z.string().min(1, 'Country is required').default('India'),
 });
 
@@ -85,5 +87,35 @@ export const createCustomerSchema = z.object({
 
 export const deleteCustomersSchema = z.object({
   customerIds: z.array(z.string()).min(1, 'At least one customer ID is required'),
+});
+
+export const createOrderSchema = z.object({
+  customerEmail: z.string().email('Invalid email address'),
+  customerFirstName: z.string().min(1, 'First name is required'),
+  customerLastName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  items: z.array(z.object({
+    productId: z.string().min(1, 'Product ID is required'),
+    variantId: z.string().min(1, 'Variant ID is required'),
+    title: z.string().min(1, 'Title is required'),
+    variantTitle: z.string().optional(),
+    sku: z.string().min(1, 'SKU is required'),
+    unitPriceMinor: z.number().int().min(0, 'Unit price must be non-negative'),
+    qty: z.number().int().min(1, 'Quantity must be at least 1'),
+    lineTotalMinor: z.number().int().min(0, 'Line total must be non-negative'),
+  })).min(1, 'At least one item is required'),
+  subtotalMinor: z.number().int().min(0),
+  discountMinor: z.number().int().min(0).default(0),
+  shippingMinor: z.number().int().min(0).default(0),
+  taxMinor: z.number().int().min(0).default(0),
+  totalMinor: z.number().int().min(0),
+  discountCode: z.string().optional(),
+  shippingAddress: addressSchema.optional(),
+  billingAddress: addressSchema.optional(),
+  paymentStatus: z.enum(['unpaid', 'paid', 'refunded']).default('paid'),
+  fulfillmentStatus: z.enum(['unfulfilled', 'fulfilled', 'returned']).default('unfulfilled'),
+  deliveryStatus: z.enum(['pending', 'shipped', 'delivered']).default('pending'),
+  status: z.enum(['pending', 'paid', 'fulfilled', 'cancelled', 'refunded']).default('paid'),
+  notes: z.string().optional(),
 });
 

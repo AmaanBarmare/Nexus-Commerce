@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { isAdminUser } from '@/lib/auth';
 import { getNextOrderNumber } from '@/lib/order-counter';
+import { createOrderSchema } from '@/lib/zod-schemas';
 
 /**
  * Admin-only endpoint to create orders
@@ -15,6 +16,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    
+    // Validate request body with Zod
+    const validation = createOrderSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
     const {
       customerEmail,
       customerFirstName,
@@ -31,13 +42,10 @@ export async function POST(request: NextRequest) {
       billingAddress,
       paymentStatus = 'paid',
       fulfillmentStatus = 'unfulfilled',
-      status = 'paid'
-    } = body;
-
-    // Validate required fields
-    if (!customerEmail || !items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'Invalid order data' }, { status: 400 });
-    }
+      deliveryStatus = 'pending',
+      status = 'paid',
+      notes
+    } = validation.data;
 
     // Get next monotonic order number
     const orderNumber = await getNextOrderNumber();
@@ -67,6 +75,7 @@ export async function POST(request: NextRequest) {
         status,
         paymentStatus,
         fulfillmentStatus,
+        deliveryStatus,
         currency: 'INR',
         subtotalMinor,
         discountMinor,
@@ -76,6 +85,7 @@ export async function POST(request: NextRequest) {
         discountCode,
         shippingAddress,
         billingAddress,
+        notes: notes || null,
         items: {
           create: items.map((item: any) => ({
             productId: item.productId,

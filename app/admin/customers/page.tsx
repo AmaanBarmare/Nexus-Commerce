@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatMoney } from '@/lib/util';
+import { useRouter } from 'next/navigation';
 
 type Customer = {
   id: string;
@@ -29,6 +30,7 @@ type Customer = {
 };
 
 export default function CustomersPage() {
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -220,27 +222,55 @@ export default function CustomersPage() {
                 </TableRow>
               ) : (
                 customers.map((customer) => (
-                  <TableRow key={customer.id}>
+                  <TableRow 
+                    key={customer.id}
+                    className="hover:bg-gray-50"
+                  >
                     <TableCell>
                       <input
                         type="checkbox"
                         checked={selectedCustomers.includes(customer.id)}
                         onChange={() => handleSelectCustomer(customer.id)}
                         className="rounded border-gray-300"
+                        onClick={(e) => e.stopPropagation()}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell 
+                      className="font-medium cursor-pointer"
+                      onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                    >
                       {getCustomerName(customer)}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{customer.email}</TableCell>
-                    <TableCell>
+                    <TableCell 
+                      className="font-mono text-sm cursor-pointer"
+                      onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                    >
+                      {customer.email}
+                    </TableCell>
+                    <TableCell 
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                    >
                       <Badge variant={customer.acceptsEmail ? 'default' : 'secondary'}>
                         {getEmailSubscriptionStatus(customer)}
                       </Badge>
                     </TableCell>
-                    <TableCell>{customer.orderCount}</TableCell>
-                    <TableCell>{formatMoney(customer.totalSpent)}</TableCell>
-                    <TableCell>
+                    <TableCell 
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                    >
+                      {customer.orderCount}
+                    </TableCell>
+                    <TableCell 
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                    >
+                      {formatMoney(customer.totalSpent)}
+                    </TableCell>
+                    <TableCell 
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                    >
                       {new Date(customer.createdAt).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
