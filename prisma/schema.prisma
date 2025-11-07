@@ -181,6 +181,46 @@ model OrderCounter {
   @@map("order_counter")
 }
 
+model MarketingFlow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  trigger     Json     // { event: string, conditions?: object }
+  steps       Json     // Array of action steps
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  templates   EmailTemplate[]
+
+  @@index([active])
+}
+
+model EmailTemplate {
+  id          String        @id @default(cuid())
+  name        String
+  subject     String
+  manifest    Json          // TemplateManifest structure
+  flowId      String?
+  flow        MarketingFlow? @relation(fields: [flowId], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([flowId])
+}
+
+model BrandDocument {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  category  String   // brand_tone, product_info, legal, etc.
+  embedding Unsupported("vector(1536)")? // pgvector embedding (1536 dims for text-embedding-3-small)
+  metadata  Json?    // { source, version, etc. }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
 enum OrderStatus {
   pending
   paid

@@ -10,7 +10,8 @@ import {
   Users, 
   Settings,
   LogOut,
-  Box
+  Box,
+  Sparkles
 } from 'lucide-react';
 
 function SignOutButton() {
@@ -48,15 +49,17 @@ const navigation = [
   { name: 'Products', href: '/admin/product', icon: Box },
   { name: 'Discounts', href: '/admin/discounts', icon: Tag },
   { name: 'Customers', href: '/admin/customers', icon: Users },
+  { name: 'Marketing', href: '/admin/marketing', icon: Sparkles },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/admin';
+  const isAssistantRoute = pathname?.startsWith('/admin/marketing/assistant');
 
   // If it's the login page, render without sidebar
-  if (isLoginPage) {
+  if (isLoginPage || isAssistantRoute) {
     return <>{children}</>;
   }
 

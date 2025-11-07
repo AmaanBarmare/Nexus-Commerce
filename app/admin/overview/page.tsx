@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { IndianRupee, ShoppingBag, Sparkles } from 'lucide-react';
 import { formatMoney } from '@/lib/util';
 import { OrdersBarChart } from '@/components/charts/orders-bar-chart';
 import { RevenueLineChart } from '@/components/charts/revenue-line-chart';
@@ -81,63 +82,72 @@ export default async function AdminDashboard() {
   const data = await getDashboardData();
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Overview</h1>
-        <p className="text-gray-500 mt-1">Welcome to your Alyra admin dashboard</p>
-      </div>
+    <div className="space-y-10">
+      <section className="rounded-2xl bg-white px-6 py-6 shadow-sm">
+        <h1 className="text-3xl font-semibold text-slate-900">Overview</h1>
+        <p className="mt-1 text-sm text-slate-500">Snapshot of orders, revenue, and customer momentum.</p>
+      </section>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-500">Today&apos;s Orders</CardTitle>
+      <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <Card className="overflow-hidden border-none bg-gradient-to-br from-amber-100 via-white to-amber-50 shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-semibold text-amber-900/80">Today&apos;s Orders</CardTitle>
+            <div className="rounded-full bg-amber-500/20 p-2 text-amber-600">
+              <ShoppingBag className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{data.todayOrders}</div>
+            <p className="text-4xl font-semibold text-amber-900">{data.todayOrders}</p>
+            <p className="mt-2 text-xs uppercase tracking-wider text-amber-800/70">since midnight</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-500">Today&apos;s Revenue</CardTitle>
+        <Card className="overflow-hidden border-none bg-gradient-to-br from-sky-100 via-white to-sky-50 shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-semibold text-sky-900/80">Today&apos;s Revenue</CardTitle>
+            <div className="rounded-full bg-sky-500/20 p-2 text-sky-600">
+              <IndianRupee className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatMoney(data.todayRevenue)}</div>
+            <p className="text-4xl font-semibold text-sky-900">{formatMoney(data.todayRevenue)}</p>
+            <p className="mt-2 text-xs uppercase tracking-wider text-sky-800/70">paid orders only</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-500">Avg Order Value</CardTitle>
+        <Card className="overflow-hidden border-none bg-gradient-to-br from-emerald-100 via-white to-emerald-50 shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-semibold text-emerald-900/80">Average Order Value</CardTitle>
+            <div className="rounded-full bg-emerald-500/20 p-2 text-emerald-600">
+              <IndianRupee className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatMoney(Math.floor(data.avgOrderValue))}</div>
-            <p className="text-sm text-gray-500 mt-1">Last 30 days</p>
+            <p className="text-4xl font-semibold text-emerald-900">{formatMoney(Math.floor(data.avgOrderValue))}</p>
+            <p className="mt-2 text-xs uppercase tracking-wider text-emerald-800/70">rolling 30 days</p>
           </CardContent>
         </Card>
-      </div>
+      </section>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Orders Last 7 Days</CardTitle>
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="border-none shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-semibold text-slate-800">Orders • last 7 days</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <OrdersBarChart data={data.ordersByDay} />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue Last 30 Days</CardTitle>
+        <Card className="border-none shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-semibold text-slate-800">Revenue • last 30 days</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <RevenueLineChart data={data.revenueByDay} />
           </CardContent>
         </Card>
-      </div>
+      </section>
     </div>
   );
 }
