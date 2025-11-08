@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,12 +17,13 @@ interface Message {
   data?: any;
 }
 
-export default function MarketingAssistantPage() {
+export default function FlowsAssistantPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewSubject, setPreviewSubject] = useState<string | null>(null);
+  const [intent, setIntent] = useState<'generate_email' | 'create_flow'>('generate_email');
 
   const router = useRouter();
 
@@ -43,6 +45,7 @@ export default function MarketingAssistantPage() {
         },
         body: JSON.stringify({
           message: userMessage,
+          intent,
         }),
       });
 
@@ -65,17 +68,7 @@ export default function MarketingAssistantPage() {
         } else if (result.intent === 'create_flow') {
           assistantMessage = `✅ Marketing flow created!\n\nName: ${result.data.flow.name}\n\nFlow ID: ${result.data.flowId}\n\nStatus: ${result.data.flow.active ? 'Active' : 'Inactive (requires activation)'}`;
         } else if (result.intent === 'query_metrics') {
-          if (result.data.metric === 'average_order_value') {
-            assistantMessage = `📊 Average Order Value (Last 30 Days)\n\n₹${result.data.value.toFixed(2)}\n\nBased on ${result.data.orderCount} orders`;
-          } else if (result.data.metric === 'top_buyers') {
-            assistantMessage = `📊 Top Buyers\n\n${result.data.customers
-              .map((c: any, i: number) => `${i + 1}. ${c.email}: ₹${c.totalSpent.toFixed(2)} (${c.orderCount} orders)`)
-              .join('\n')}`;
-          } else if (result.data.metric === 'total_revenue') {
-            assistantMessage = `📊 Total Revenue\n\n₹${result.data.value.toFixed(2)}\n\nFrom ${result.data.orderCount} orders`;
-          } else {
-            assistantMessage = JSON.stringify(result.data, null, 2);
-          }
+          assistantMessage = 'ℹ️ For metrics, switch to the Quick Metrics assistant.';
         } else {
           assistantMessage = result.error || 'Request processed';
         }
@@ -119,7 +112,7 @@ export default function MarketingAssistantPage() {
             </div>
             <div className="text-right">
               <p className="text-sm font-semibold tracking-[0.35em] text-white/60">ALYRA</p>
-              <h2 className="text-xl font-semibold">Marketing AI Assistant</h2>
+              <h2 className="text-xl font-semibold">Flows & Emails Assistant</h2>
             </div>
           </div>
         </header>
@@ -130,19 +123,19 @@ export default function MarketingAssistantPage() {
               <CardHeader className="border-b border-white/10 pb-4">
                 <CardTitle className="text-white">Conversation</CardTitle>
                 <p className="text-sm text-white/70">
-                  Give the Marketing AI Assistant a goal—flows, emails, or quick insights.
+                  Give the assistant a goal—flows, automations, or brand-perfect emails.
                 </p>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col space-y-4 pt-6">
                 <div className="flex-1 overflow-y-auto space-y-4 pr-1">
                   {messages.length === 0 && (
                     <div className="rounded-xl border border-white/15 bg-white/5 p-6 text-center text-white/70">
-                      <p className="text-base font-medium">Start a conversation with the Marketing AI Assistant</p>
+                      <p className="text-base font-medium">Start a conversation with the Flows & Emails assistant</p>
                       <p className="mt-2 text-sm">Try prompts like:</p>
                       <ul className="mt-3 space-y-1 text-sm">
                         <li>• “When a customer places an order, send a confirmation email.”</li>
-                        <li>• “Draft a replenishment email for Fruit d’Amour buyers.”</li>
-                        <li>• “Show me the top buyers over the last 30 days.”</li>
+                        <li>• “Create a 3-step winback flow for dormant buyers.”</li>
+                        <li>• “Draft a launch announcement in Alyra’s brand voice.”</li>
                       </ul>
                     </div>
                   )}
@@ -169,6 +162,31 @@ export default function MarketingAssistantPage() {
                 </div>
 
                 <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+                      Mode: {intent === 'generate_email' ? 'Generate Email' : 'Create Flow'}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={intent === 'generate_email' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setIntent('generate_email')}
+                        className="text-xs font-semibold uppercase tracking-[0.2em]"
+                      >
+                        Generate Email
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={intent === 'create_flow' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setIntent('create_flow')}
+                        className="text-xs font-semibold uppercase tracking-[0.2em]"
+                      >
+                        Build Flow
+                      </Button>
+                    </div>
+                  </div>
                   <Textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -178,7 +196,7 @@ export default function MarketingAssistantPage() {
                         handleSend();
                       }
                     }}
-                    placeholder="Ask the Marketing AI Assistant... (Press Enter to send, Shift+Enter for a new line)"
+                    placeholder="Ask the assistant... (Press Enter to send, Shift+Enter for a new line)"
                     rows={3}
                     disabled={loading}
                     className="border-white/20 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-white/40"
@@ -198,7 +216,7 @@ export default function MarketingAssistantPage() {
               <CardHeader className="border-b border-slate-100 pb-4">
                 <CardTitle>Email Preview</CardTitle>
                 <p className="text-sm text-slate-500">
-                  Live render of the manifest Marketing AI Assistant generates in real time.
+                  Live render of the manifest generated in real time. Update the conversation to refresh the preview.
                 </p>
                 {previewSubject && (
                   <p className="text-sm font-medium text-slate-700">Subject: {previewSubject}</p>
@@ -215,7 +233,7 @@ export default function MarketingAssistantPage() {
                     <div>
                       <p className="text-base font-medium">Generate an email to see the preview here</p>
                       <p className="mt-2 text-sm">
-                        Email templates follow Alyra’s design system and brand voice automatically.
+                        Email templates follow Alyra’s design system, tone, and legal guidance automatically.
                       </p>
                     </div>
                   </div>

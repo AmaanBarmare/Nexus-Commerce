@@ -17,7 +17,7 @@ export default function MarketingPage() {
         </div>
         <h1 className="mt-8 text-4xl font-semibold text-slate-900">AI Marketing Assistant</h1>
         <p className="mt-4 text-lg text-slate-600">
-          Craft hyper-personalised flows, generate ready-to-send templates, and pull quick metrics—all in Alyra’s brand voice.
+          Craft hyper-personalised flows, generate ready-to-send templates, and pull quick metrics, all in Alyra’s brand voice.
         </p>
         <div className="mt-10 flex flex-col items-center gap-3 text-sm text-slate-500">
           <span>What you can ask:</span>
@@ -27,14 +27,24 @@ export default function MarketingPage() {
             <li>• “What’s the average order value this month?”</li>
           </ul>
         </div>
-        <Button
-          size="lg"
-          className="mt-12 inline-flex items-center gap-2 px-8 text-base"
-          onClick={() => router.push('/admin/marketing/assistant')}
-        >
-          Enter Assistant
-          <Sparkles className="h-5 w-5" />
-        </Button>
+        <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Button
+            size="lg"
+            className="inline-flex items-center gap-2 px-8 text-base"
+            onClick={() => router.push('/admin/marketing/assistant/flows')}
+          >
+            Flows & Emails
+            <Sparkles className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="inline-flex items-center gap-2 px-8 text-base"
+            onClick={() => router.push('/admin/marketing/assistant/metrics')}
+          >
+            Quick Metrics
+          </Button>
+        </div>
       </div>
     </div>
   );

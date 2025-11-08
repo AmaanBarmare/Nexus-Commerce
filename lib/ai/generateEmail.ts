@@ -4,6 +4,68 @@ import { TemplateManifestSchema, type TemplateManifest } from '../schemas/market
 import { createStructuredOutputConfig, validateJsonResponse } from './json';
 import { getRAGContext } from './embeddings';
 
+const URL_PLACEHOLDER_REGEX = /^\{\{[a-zA-Z0-9_.-]+\}\}$/;
+
+function normaliseUrl(value: unknown, fallback: string) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  if (URL_PLACEHOLDER_REGEX.test(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+      return trimmed;
+    }
+  } catch (error) {
+    // swallow and use fallback below
+  }
+
+  return fallback;
+}
+
+function sanitiseGeneratedEmail(json: any) {
+  if (!json || typeof json !== 'object') {
+    return json;
+  }
+
+  const manifest = json.manifest && typeof json.manifest === 'object' ? json.manifest : json;
+
+  if (manifest && Array.isArray(manifest.blocks)) {
+    manifest.blocks = manifest.blocks.map((block: any, index: number) => {
+      if (!block || typeof block !== 'object') {
+        return block;
+      }
+
+      if (block.type === 'cta') {
+        return {
+          ...block,
+          url: normaliseUrl(block.url, `{{cta_url_${index + 1}}}`),
+        };
+      }
+
+      if (block.type === 'footer' && block.unsubscribeUrl !== undefined) {
+        return {
+          ...block,
+          unsubscribeUrl: normaliseUrl(block.unsubscribeUrl, '{{unsubscribe_url}}'),
+        };
+      }
+
+      return block;
+    });
+  }
+
+  return json;
+}
+
 /**
  * Email generation with RAG context
  * Uses OpenAI to generate email templates based on user intent and brand knowledge
@@ -68,13 +130,7 @@ Generate a complete email template with:
   // Create structured output config
   const responseSchema = TemplateManifestSchema.extend({
     subject: z.string(),
-  }).transform((data) => ({
-    subject: data.subject,
-    manifest: {
-      design_system: data.design_system,
-      blocks: data.blocks,
-    },
-  }));
+  });
 
   const structuredConfig = createStructuredOutputConfig(
     responseSchema,
@@ -109,12 +165,22 @@ Generate a complete email template with:
         throw new Error(`Failed to parse JSON: ${parseError}`);
       }
 
+      const sanitisedResponse = sanitiseGeneratedEmail(jsonResponse);
+
       // Validate against schema
-      const result = validateJsonResponse(jsonResponse, responseSchema);
+      const parsed = validateJsonResponse(
+        sanitisedResponse as unknown,
+        responseSchema
+      );
+
+      const manifest: TemplateManifest = TemplateManifestSchema.parse({
+        design_system: parsed.design_system,
+        blocks: parsed.blocks,
+      });
 
       return {
-        subject: result.subject,
-        manifest: result.manifest,
+        subject: parsed.subject,
+        manifest,
       };
     } catch (error) {
       attempts++;

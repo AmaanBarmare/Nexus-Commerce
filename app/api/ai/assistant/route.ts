@@ -4,6 +4,8 @@ import { generateEmail, type GenerateEmailOptions } from '@/lib/ai/generateEmail
 import { FlowSpecSchema } from '@/lib/schemas/marketing';
 import { prisma } from '@/lib/db';
 import { validateJsonResponse } from '@/lib/ai/json';
+import { generateSqlFromNL } from '@/lib/ai/generateSql';
+import { runReadOnlySql } from '@/lib/db/runSql';
 
 /**
  * API endpoint for AI marketing assistant
@@ -12,9 +14,7 @@ import { validateJsonResponse } from '@/lib/ai/json';
 
 const AssistantRequestSchema = z.object({
   message: z.string().min(1, 'Message is required'),
-  intent: z
-    .enum(['generate_email', 'create_flow', 'query_metrics', 'general'])
-    .optional(),
+  intent: z.enum(['generate_email', 'create_flow', 'query_metrics']),
   context: z
     .object({
       email_type: z.string().optional(),
@@ -25,91 +25,24 @@ const AssistantRequestSchema = z.object({
     .optional(),
 });
 
-/**
- * Compute simple metrics from database
- */
-async function queryMetrics(query: string): Promise<any> {
-  const queryLower = query.toLowerCase();
+function sanitizeMetricsResult(result: {
+  columns: Array<{ name: string; type: string }>;
+  rows: Array<Record<string, unknown>>;
+}) {
+  const isSensitive = (name: string) => {
+    const lower = name.toLowerCase();
+    return lower === 'customer_id' || lower === 'customerid' || lower.includes('customer') && lower.endsWith('_id');
+  };
 
-  // Average Order Value
-  if (queryLower.includes('average order value') || queryLower.includes('aov')) {
-    const result = await prisma.order.aggregate({
-      where: {
-        paymentStatus: 'paid',
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
-        },
-      },
-      _avg: {
-        totalMinor: true,
-      },
-      _count: true,
-    });
-
-    return {
-      metric: 'average_order_value',
-      value: result._avg.totalMinor ? result._avg.totalMinor / 100 : 0,
-      currency: 'INR',
-      period: 'last_30_days',
-      orderCount: result._count,
-    };
-  }
-
-  // Top buyers
-  if (queryLower.includes('top buyer') || queryLower.includes('top customer')) {
-    const topCustomers = await prisma.order.groupBy({
-      by: ['customerId', 'email'],
-      where: {
-        paymentStatus: 'paid',
-        customerId: { not: null },
-      },
-      _sum: {
-        totalMinor: true,
-      },
-      _count: {
-        id: true,
-      },
-      orderBy: {
-        _sum: {
-          totalMinor: 'desc',
-        },
-      },
-      take: 10,
-    });
-
-    return {
-      metric: 'top_buyers',
-      customers: topCustomers.map((c) => ({
-        email: c.email,
-        totalSpent: c._sum.totalMinor ? c._sum.totalMinor / 100 : 0,
-        orderCount: c._count.id,
-      })),
-    };
-  }
-
-  // Total revenue
-  if (queryLower.includes('revenue') || queryLower.includes('total sales')) {
-    const result = await prisma.order.aggregate({
-      where: {
-        paymentStatus: 'paid',
-      },
-      _sum: {
-        totalMinor: true,
-      },
-      _count: true,
-    });
-
-    return {
-      metric: 'total_revenue',
-      value: result._sum.totalMinor ? result._sum.totalMinor / 100 : 0,
-      currency: 'INR',
-      orderCount: result._count,
-    };
-  }
+  const filteredColumns = result.columns.filter((column) => !isSensitive(column.name));
+  const filteredRows = result.rows.map((row) => {
+    const entries = Object.entries(row).filter(([key]) => !isSensitive(key));
+    return Object.fromEntries(entries);
+  });
 
   return {
-    error: 'Unknown metric query',
-    availableMetrics: ['average_order_value', 'top_buyers', 'total_revenue'],
+    columns: filteredColumns,
+    rows: filteredRows,
   };
 }
 
@@ -144,36 +77,8 @@ export async function POST(request: NextRequest) {
       AssistantRequestSchema
     );
 
-    // Determine intent from message if not provided
-    let detectedIntent = intent;
-    if (!detectedIntent) {
-      const messageLower = message.toLowerCase();
-      if (
-        messageLower.includes('email') ||
-        messageLower.includes('send') ||
-        messageLower.includes('template')
-      ) {
-        detectedIntent = 'generate_email';
-      } else if (
-        messageLower.includes('flow') ||
-        messageLower.includes('automation') ||
-        messageLower.includes('when')
-      ) {
-        detectedIntent = 'create_flow';
-      } else if (
-        messageLower.includes('average') ||
-        messageLower.includes('metric') ||
-        messageLower.includes('revenue') ||
-        messageLower.includes('buyer')
-      ) {
-        detectedIntent = 'query_metrics';
-      } else {
-        detectedIntent = 'general';
-      }
-    }
-
     // Route to appropriate handler
-    switch (detectedIntent) {
+    switch (intent) {
       case 'generate_email': {
         const options: GenerateEmailOptions = {
           intent: 'generate_email',
@@ -238,21 +143,29 @@ export async function POST(request: NextRequest) {
       }
 
       case 'query_metrics': {
-        const metrics = await queryMetrics(message);
+        const plan = await generateSqlFromNL(message);
+        const result = await runReadOnlySql(plan.sql, plan.params);
+        const safeResult = sanitizeMetricsResult(result);
 
         return NextResponse.json({
           intent: 'query_metrics',
           success: true,
-          data: metrics,
+          data: {
+            metric: plan.metric,
+            visualization: plan.visualization ?? 'table',
+            sql: plan.sql,
+            params: plan.params,
+            columns: safeResult.columns,
+            rows: safeResult.rows,
+          },
         });
       }
 
       default:
         return NextResponse.json(
           {
-            intent: 'general',
             success: false,
-            error: 'Intent not recognized. Please specify: generate_email, create_flow, or query_metrics',
+            error: 'Intent not recognized. Valid intents are generate_email, create_flow, query_metrics.',
           },
           { status: 400 }
         );

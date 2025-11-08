@@ -11,7 +11,8 @@ import {
   Settings,
   LogOut,
   Box,
-  Sparkles
+  Sparkles,
+  BarChart3
 } from 'lucide-react';
 
 function SignOutButton() {
@@ -49,6 +50,7 @@ const navigation = [
   { name: 'Products', href: '/admin/product', icon: Box },
   { name: 'Discounts', href: '/admin/discounts', icon: Tag },
   { name: 'Customers', href: '/admin/customers', icon: Users },
+  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Marketing', href: '/admin/marketing', icon: Sparkles },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
