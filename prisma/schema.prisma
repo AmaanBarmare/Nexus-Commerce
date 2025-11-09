@@ -220,6 +220,7 @@ model AnalyticsReport {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   downloads     AnalyticsReportDownload[]
+  charts        AnalyticsChart[]
 
   @@index([createdAt])
 }
@@ -232,6 +233,20 @@ model AnalyticsReportDownload {
   report    AnalyticsReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@index([reportId, createdAt])
+}
+
+model AnalyticsChart {
+  id        String   @id @default(cuid())
+  reportId  String?
+  name      String
+  chartType String
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  report    AnalyticsReport? @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([reportId])
 }
 
 model BrandDocument {
