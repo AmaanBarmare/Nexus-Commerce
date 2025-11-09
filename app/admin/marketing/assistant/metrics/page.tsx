@@ -7,10 +7,21 @@ import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 type VisualizationType = 'table' | 'timeseries' | 'bar';
 
 interface MetricsResult {
+  id: string;
   metric: string;
   visualization: VisualizationType;
   sql: string;
@@ -29,6 +40,19 @@ export default function MetricsAssistantPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [savingReportId, setSavingReportId] = useState<string | null>(null);
+  const [saveDialog, setSaveDialog] = useState<{
+    open: boolean;
+    report?: MetricsResult;
+    name: string;
+    error: string | null;
+    submitting: boolean;
+  }>({
+    open: false,
+    name: '',
+    error: null,
+    submitting: false,
+  });
 
   const router = useRouter();
 
@@ -84,6 +108,17 @@ export default function MetricsAssistantPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveReport = (data: MetricsResult) => {
+    const defaultName = humaniseMetricName(data.metric);
+    setSaveDialog({
+      open: true,
+      report: data,
+      name: defaultName,
+      error: null,
+      submitting: false,
+    });
   };
 
   return (
@@ -144,7 +179,11 @@ export default function MetricsAssistantPage() {
 
                       {msg.data && (
                         <div className="mt-3 rounded-xl border border-white/15 bg-black/20 p-3 text-xs text-white/80">
-                          <MetricsResultView data={msg.data} />
+                          <MetricsResultView
+                            data={msg.data}
+                            onSave={() => handleSaveReport(msg.data!)}
+                            saving={savingReportId === msg.data.id}
+                          />
                         </div>
                       )}
                     </div>
@@ -185,6 +224,67 @@ export default function MetricsAssistantPage() {
           </Card>
         </main>
       </div>
+      <SaveReportDialog
+        state={saveDialog}
+        onClose={() =>
+          setSaveDialog({
+            open: false,
+            name: '',
+            error: null,
+            submitting: false,
+          })
+        }
+        onSubmit={async (name) => {
+          if (!saveDialog.report) return;
+          setSavingReportId(saveDialog.report.id);
+          setSaveDialog((prev) => ({ ...prev, submitting: true, error: null }));
+          try {
+            const response = await fetch('/api/admin/analytics/reports', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name,
+                metric: saveDialog.report.metric,
+                visualization: saveDialog.report.visualization,
+                columns: saveDialog.report.columns,
+                rows: saveDialog.report.rows,
+                sql: saveDialog.report.sql,
+                params: saveDialog.report.params,
+              }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || 'Failed to save report');
+            }
+
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: 'assistant',
+                content: `📁 Saved report "${result.data.name}" to Analytics → All Files.`,
+              },
+            ]);
+            setSaveDialog({
+              open: false,
+              name: '',
+              error: null,
+              submitting: false,
+            });
+          } catch (error) {
+            setSaveDialog((prev) => ({
+              ...prev,
+              error: error instanceof Error ? error.message : 'Unexpected error occurred',
+              submitting: false,
+            }));
+          } finally {
+            setSavingReportId(null);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -204,6 +304,7 @@ function transformMetricsResponse(data: any): MetricsResult | undefined {
   if (!Array.isArray(data.columns) || !Array.isArray(data.rows)) return undefined;
 
   return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     metric: typeof data.metric === 'string' ? data.metric : 'metric_result',
     visualization: (['table', 'timeseries', 'bar'] as VisualizationType[]).includes(data.visualization)
       ? data.visualization
@@ -216,20 +317,42 @@ function transformMetricsResponse(data: any): MetricsResult | undefined {
         name: col.name,
         type: typeof col.type === 'string' ? col.type : typeof data.rows[0]?.[col.name],
       })),
-    rows: data.rows as Array<Record<string, unknown>>,
+    rows: (data.rows as Array<Record<string, unknown>>).map((row) => ({ ...row })),
   };
 }
 
-function MetricsResultView({ data }: { data: MetricsResult }) {
+function MetricsResultView({
+  data,
+  onSave,
+  saving,
+}: {
+  data: MetricsResult;
+  onSave?: () => void;
+  saving?: boolean;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
           {humaniseMetricName(data.metric)}
         </p>
-        <span className="rounded-full border border-white/25 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/60">
-          {data.visualization}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-white/25 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/60">
+            {data.visualization}
+          </span>
+          {onSave && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onSave}
+              disabled={saving}
+              className="text-[10px] uppercase tracking-[0.2em]"
+            >
+              {saving ? 'Saving…' : 'Save to All Files'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {data.rows.length > 0 ? (
@@ -330,4 +453,68 @@ function humaniseMetricName(metric: string): string {
   return metric
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function SaveReportDialog({
+  state,
+  onClose,
+  onSubmit,
+}: {
+  state: {
+    open: boolean;
+    report?: MetricsResult;
+    name: string;
+    error: string | null;
+    submitting: boolean;
+  };
+  onClose: () => void;
+  onSubmit: (name: string) => void;
+}) {
+  const { open, name, error, submitting } = state;
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Save report</DialogTitle>
+          <DialogDescription>
+            Store this table in Analytics → All Files for future reference.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const formData = new FormData(event.currentTarget);
+            const reportName = (formData.get('reportName') as string)?.trim();
+            if (!reportName) {
+              return;
+            }
+            onSubmit(reportName);
+          }}
+          className="space-y-4"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="reportName">Report name</Label>
+            <Input
+              id="reportName"
+              name="reportName"
+              defaultValue={name}
+              placeholder="e.g. Top Customers by Revenue"
+              disabled={submitting}
+              required
+            />
+            {error && <p className="text-xs text-red-400">{error}</p>}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }

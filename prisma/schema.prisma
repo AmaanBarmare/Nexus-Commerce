@@ -208,6 +208,32 @@ model EmailTemplate {
   @@index([flowId])
 }
 
+model AnalyticsReport {
+  id            String   @id @default(cuid())
+  name          String
+  metric        String
+  visualization String   @default("table")
+  columns       Json
+  rows          Json
+  sql           String?
+  params        Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  downloads     AnalyticsReportDownload[]
+
+  @@index([createdAt])
+}
+
+model AnalyticsReportDownload {
+  id        String   @id @default(cuid())
+  reportId  String
+  userEmail String?
+  createdAt DateTime @default(now())
+  report    AnalyticsReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, createdAt])
+}
+
 model BrandDocument {
   id        String   @id @default(cuid())
   title     String

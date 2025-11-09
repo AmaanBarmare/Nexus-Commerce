@@ -285,6 +285,8 @@ Constraints:
 - Always parameterise user-provided values with $1, $2, … (no string interpolation).
 - Return JSON that matches the "SqlPlanSchema".
 - Provide clear snake_case aliases for aggregates.
+- Only include columns that directly answer the user’s question; avoid adding extra counts, IDs, or metrics unless the user explicitly asks for them.
+- For customer-focused answers, include a combined full name (COALESCE("Customer"."firstName",'') || ' ' || COALESCE("Customer"."lastName",'')) and email by default. Only return separate name parts or IDs if the user clearly asks.
 - Prefer joining via aliases like "Order" AS o.
 - Default to LIMIT 500 unless the query is an explicit COUNT-only metric.
 
@@ -295,7 +297,8 @@ Whitelisted schema (Postgres, quoted identifiers):
 - "Customer"(id, email, firstName, lastName, phone, acceptsEmail, createdAt, updatedAt)
 
 Hints:
-- Paid orders => "Order"."paymentStatus" = 'paid'
+- Paid orders => "Order"."paymentStatus" = 'paid'::"PaymentStatus"
+- When comparing enums (paymentStatus, fulfillmentStatus, deliveryStatus), cast string literals like 'paid'::"PaymentStatus" or 'fulfilled'::"FulfillmentStatus"
 - Revenue => SUM(oi."qty" * oi."unitPriceMinor") / 100 AS revenue
 - Units sold => SUM(oi."qty")
 - Join keys: "Order"."id" = "OrderItem"."orderId"; "OrderItem"."productId" = "AlyraProduct"."id"; "Order"."customerId" = "Customer"."id"
@@ -338,7 +341,57 @@ Hints:
   ensureAllowedTables(plan);
   ensureAllowedColumns(plan);
 
-  return ensureLimit(plan);
+  const castedSql = applyEnumCasts(plan.sql);
+
+  return ensureLimit({
+    ...plan,
+    sql: castedSql,
+  });
+}
+
+function applyEnumCasts(sql: string): string {
+  let updated = sql;
+
+  updated = updated.replace(/("paymentStatus"\s*=\s*)'([^']+)'/gi, '$1\'$2\'::"PaymentStatus"');
+  updated = updated.replace(
+    /("fulfillmentStatus"\s*=\s*)'([^']+)'/gi,
+    '$1\'$2\'::"FulfillmentStatus"'
+  );
+  updated = updated.replace(/("deliveryStatus"\s*=\s*)'([^']+)'/gi, '$1\'$2\'::"DeliveryStatus"');
+
+  updated = updated.replace(
+    /("paymentStatus"\s+IN\s*\()([^)]*)(\))/gi,
+    (_match: string, prefix: string, list: string, suffix: string) =>
+      `${prefix}${castListEntries(list, '"PaymentStatus"')}${suffix}`
+  );
+  updated = updated.replace(
+    /("fulfillmentStatus"\s+IN\s*\()([^)]*)(\))/gi,
+    (_match: string, prefix: string, list: string, suffix: string) =>
+      `${prefix}${castListEntries(list, '"FulfillmentStatus"')}${suffix}`
+  );
+  updated = updated.replace(
+    /("deliveryStatus"\s+IN\s*\()([^)]*)(\))/gi,
+    (_match: string, prefix: string, list: string, suffix: string) =>
+      `${prefix}${castListEntries(list, '"DeliveryStatus"')}${suffix}`
+  );
+
+  return updated;
+}
+
+function castListEntries(list: string, enumName: string): string {
+  return list
+    .split(',')
+    .map((entry) => {
+      const trimmed = entry.trim();
+      if (/::/.test(trimmed)) {
+        return trimmed;
+      }
+      if (/^'[^']+'$/.test(trimmed)) {
+        return `${trimmed}::${enumName}`;
+      }
+      return trimmed;
+    })
+    .join(', ');
 }
 
 
