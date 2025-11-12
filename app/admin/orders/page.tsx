@@ -188,6 +188,7 @@ export default function OrdersPage() {
     fetchDiscounts();
     // Clear selected orders when filter changes
     setSelectedOrders([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAll]);
 
   // Sync state search with form state

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { generateEmail, type GenerateEmailOptions } from '@/lib/ai/generateEmail';
-import { FlowSpecSchema } from '@/lib/schemas/marketing';
-import { prisma } from '@/lib/db';
 import { validateJsonResponse } from '@/lib/ai/json';
 import { generateSqlFromNL } from '@/lib/ai/generateSql';
 import { runReadOnlySql } from '@/lib/db/runSql';
@@ -88,20 +86,10 @@ export async function POST(request: NextRequest) {
 
         const result = await generateEmail(options);
 
-        // Optionally save template to database
-        const template = await prisma.emailTemplate.create({
-          data: {
-            name: `Generated: ${result.subject}`,
-            subject: result.subject,
-            manifest: result.manifest as any,
-          },
-        });
-
         return NextResponse.json({
           intent: 'generate_email',
           success: true,
           data: {
-            templateId: template.id,
             subject: result.subject,
             manifest: result.manifest,
           },
@@ -109,37 +97,14 @@ export async function POST(request: NextRequest) {
       }
 
       case 'create_flow': {
-        const flowData = await createFlow(message, context);
-
-        // Validate flow spec
-        const flowSpec = validateJsonResponse(flowData, FlowSpecSchema);
-
-        // Save to database
-        const flow = await prisma.marketingFlow.create({
-          data: {
-            name: flowData.name,
-            description: flowData.description,
-            trigger: flowSpec.trigger as any,
-            steps: flowSpec.steps as any,
-            active: flowData.active,
+        return NextResponse.json(
+          {
+            intent: 'create_flow',
+            success: false,
+            error: 'Flow creation has moved to /api/flows/generate. Please update the client to use the new endpoint.',
           },
-        });
-
-        return NextResponse.json({
-          intent: 'create_flow',
-          success: true,
-          data: {
-            flowId: flow.id,
-            flow: {
-              id: flow.id,
-              name: flow.name,
-              description: flow.description,
-              trigger: flow.trigger,
-              steps: flow.steps,
-              active: flow.active,
-            },
-          },
-        });
+          { status: 501 }
+        );
       }
 
       case 'query_metrics': {

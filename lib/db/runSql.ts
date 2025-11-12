@@ -14,8 +14,7 @@ export async function runReadOnlySql(
   sql: string,
   params: Array<string | number | boolean | null>
 ): Promise<RunSqlResult> {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const rawRows = await prisma.$queryRawUnsafe(sql, ...params);
+  const rawRows = await prisma.$queryRawUnsafe<unknown[]>(sql, ...params);
 
   if (!Array.isArray(rawRows)) {
     return { rows: [], columns: [] };

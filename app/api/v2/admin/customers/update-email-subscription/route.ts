@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const updateEmailSubscriptionSchema = z.object({
   customerId: z.string().min(1, 'Customer ID is required'),
-  acceptsEmail: z.boolean(),
+  marketingSubscribed: z.boolean(),
 });
 
 /**
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { customerId, acceptsEmail } = validation.data;
+    const { customerId, marketingSubscribed } = validation.data;
 
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
     const updated = await prisma.customer.update({
       where: { id: customerId },
       data: {
-        acceptsEmail: acceptsEmail,
+        marketingSubscribed,
+        marketingSubscribedAt: marketingSubscribed ? new Date() : null,
       },
       include: {
         orders: {

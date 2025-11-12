@@ -134,7 +134,7 @@ Alyra Admin is a **Next.js 15** e-commerce admin panel built with the App Router
 
 #### **Customer**
 - Customer profiles
-- Fields: `id`, `email`, `firstName`, `lastName`, `phone`, `acceptsEmail`
+- Fields: `id`, `email`, `firstName`, `lastName`, `phone`, `marketingSubscribed`, `marketingSubscribedAt`, `bounced`, `complained`, `country`
 - Relationships: `addresses` (one-to-many), `orders` (one-to-many)
 
 #### **Address**

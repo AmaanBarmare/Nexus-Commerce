@@ -99,7 +99,7 @@ export default function CustomerDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: customer.id,
-          acceptsEmail: !customer.acceptsEmail,
+          marketingSubscribed: !customer.marketingSubscribed,
         }),
       });
 
@@ -163,8 +163,8 @@ export default function CustomerDetailPage() {
               )}
               <div>
                 <div className="text-sm text-gray-500 mb-1">Email Subscription</div>
-                <Badge variant={customer.acceptsEmail ? 'default' : 'secondary'}>
-                  {customer.acceptsEmail ? 'Subscribed' : 'Not Subscribed'}
+                <Badge variant={customer.marketingSubscribed ? 'default' : 'secondary'}>
+                  {customer.marketingSubscribed ? 'Subscribed' : 'Not Subscribed'}
                 </Badge>
               </div>
               <div>
@@ -179,16 +179,16 @@ export default function CustomerDetailPage() {
               </div>
               <div className="pt-2">
                 <Button 
-                  variant={customer.acceptsEmail ? 'outline' : 'default'}
+                  variant={customer.marketingSubscribed ? 'outline' : 'default'}
                   size="sm"
                   className="w-full"
                   onClick={handleToggleEmailSubscription}
                   disabled={updatingSubscription}
                 >
-                  {updatingSubscription 
-                    ? 'Updating...' 
-                    : customer.acceptsEmail 
-                      ? 'Unsubscribe from Emails' 
+                  {updatingSubscription
+                    ? 'Updating...'
+                    : customer.marketingSubscribed
+                      ? 'Unsubscribe from Emails'
                       : 'Subscribe to Emails'
                   }
                 </Button>

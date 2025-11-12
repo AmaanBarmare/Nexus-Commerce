@@ -3,16 +3,17 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Tag, 
-  Users, 
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Tag,
+  Users,
   Settings,
   LogOut,
   Box,
   Sparkles,
-  BarChart3
+  BarChart3,
+  Workflow
 } from 'lucide-react';
 
 function SignOutButton() {
@@ -52,6 +53,7 @@ const navigation = [
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Marketing', href: '/admin/marketing', icon: Sparkles },
+  { name: 'Flows & Emails', href: '/admin/flows', icon: Workflow },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 

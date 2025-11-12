@@ -294,7 +294,7 @@ Whitelisted schema (Postgres, quoted identifiers):
 - "Order"(id, orderNumber, customerId, email, status, paymentStatus, fulfillmentStatus, deliveryStatus, currency, subtotalMinor, discountMinor, shippingMinor, taxMinor, totalMinor, discountCode, paymentRef, razorpayOrderId, shippingAddress, billingAddress, createdAt, updatedAt, notes)
 - "OrderItem"(id, orderId, productId, variantId, title, variantTitle, sku, unitPriceMinor, qty, lineTotalMinor)
 - "AlyraProduct"(id, name, sku, type, status, inventory, priceMinor, createdAt, updatedAt)
-- "Customer"(id, email, firstName, lastName, phone, acceptsEmail, createdAt, updatedAt)
+- "Customer"(id, email, firstName, lastName, phone, marketing_subscribed, marketing_subscribed_at, bounced, complained, country, createdAt, updatedAt)
 
 Hints:
 - Paid orders => "Order"."paymentStatus" = 'paid'::"PaymentStatus"

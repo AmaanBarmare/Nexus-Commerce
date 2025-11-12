@@ -1,5 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: [
+    'mjml',
+    'mjml-core',
+    'mjml-cli',
+    'mjml-migrate',
+    'mjml-preset-core',
+    'mjml-validator',
+    'juice',
+    'cheerio',
+    'uglify-js',
+  ],
   async headers() {
     return [
       {

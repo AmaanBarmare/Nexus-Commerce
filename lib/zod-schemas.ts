@@ -82,7 +82,7 @@ export const createCustomerSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),
-  acceptsEmail: z.boolean().default(false),
+  marketingSubscribed: z.boolean().default(false),
 });
 
 export const deleteCustomersSchema = z.object({

@@ -22,16 +22,20 @@ model AlyraProduct {
 }
 
 model Customer {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  firstName    String?
-  lastName     String?
-  phone        String?
-  acceptsEmail Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  addresses    Address[]
-  orders       Order[]
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  firstName             String?
+  lastName              String?
+  phone                 String?
+  marketingSubscribed   Boolean   @default(false) @map("marketing_subscribed")
+  marketingSubscribedAt DateTime? @map("marketing_subscribed_at")
+  bounced               Boolean   @default(false)
+  complained            Boolean   @default(false)
+  country               String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  addresses             Address[]
+  orders                Order[]
 }
 
 model Address {
@@ -181,31 +185,53 @@ model OrderCounter {
   @@map("order_counter")
 }
 
-model MarketingFlow {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  trigger     Json     // { event: string, conditions?: object }
-  steps       Json     // Array of action steps
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  templates   EmailTemplate[]
+enum FlowStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+}
 
-  @@index([active])
+model Flow {
+  id        String      @id @default(cuid())
+  name      String
+  status    FlowStatus  @default(DRAFT)
+  manifest  Json
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  nodes     FlowNode[]
+  edges     FlowEdge[]
+}
+
+model FlowNode {
+  id       String @id @default(cuid())
+  flowId   String
+  type     String
+  label    String
+  data     Json
+  position Json
+  flow     Flow   @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  @@index([flowId])
+}
+
+model FlowEdge {
+  id       String @id @default(cuid())
+  flowId   String
+  sourceId String
+  targetId String
+  label    String?
+  flow     Flow   @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  @@index([flowId])
 }
 
 model EmailTemplate {
-  id          String        @id @default(cuid())
-  name        String
-  subject     String
-  manifest    Json          // TemplateManifest structure
-  flowId      String?
-  flow        MarketingFlow? @relation(fields: [flowId], references: [id], onDelete: SetNull)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  @@index([flowId])
+  id        String   @id @default(cuid())
+  name      String
+  mjml      String
+  html      String
+  meta      Json
+  updatedAt DateTime @updatedAt
 }
 
 model AnalyticsReport {

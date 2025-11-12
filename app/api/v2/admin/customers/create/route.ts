@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
-        acceptsEmail: data.acceptsEmail,
+        marketingSubscribed: data.marketingSubscribed,
+        marketingSubscribedAt: data.marketingSubscribed ? new Date() : null,
       },
     });
 

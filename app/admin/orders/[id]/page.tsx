@@ -463,7 +463,7 @@ export default function OrderDetailPage() {
                 </div>
               ) : (
                 <div className="text-sm text-gray-500 italic">
-                  No notes added yet. Click "Add Notes" to add some.
+                  No notes added yet. Click &quot;Add Notes&quot; to add some.
                 </div>
               )}
             </CardContent>

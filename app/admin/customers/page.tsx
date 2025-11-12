@@ -18,7 +18,7 @@ type Customer = {
   firstName?: string;
   lastName?: string;
   phone?: string;
-  acceptsEmail: boolean;
+  marketingSubscribed: boolean;
   createdAt: string;
   orders: {
     id: string;
@@ -43,7 +43,7 @@ export default function CustomersPage() {
     firstName: '',
     lastName: '',
     phone: '',
-    acceptsEmail: false,
+    marketingSubscribed: false,
   });
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function CustomersPage() {
           firstName: '',
           lastName: '',
           phone: '',
-          acceptsEmail: false,
+          marketingSubscribed: false,
         });
         loadCustomers();
       } else {
@@ -150,7 +150,7 @@ export default function CustomersPage() {
   };
 
   const getEmailSubscriptionStatus = (customer: Customer) => {
-    return customer.acceptsEmail ? 'subscribed' : 'not subscribed';
+    return customer.marketingSubscribed ? 'subscribed' : 'not subscribed';
   };
 
   if (loading) {
@@ -217,7 +217,7 @@ export default function CustomersPage() {
               {customers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-gray-500 py-8">
-                    No customers yet. Click "Add Customer" to add one.
+                    No customers yet. Click &quot;Add Customer&quot; to add one.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -251,7 +251,7 @@ export default function CustomersPage() {
                       className="cursor-pointer"
                       onClick={() => router.push(`/admin/customers/${customer.id}`)}
                     >
-                      <Badge variant={customer.acceptsEmail ? 'default' : 'secondary'}>
+                      <Badge variant={customer.marketingSubscribed ? 'default' : 'secondary'}>
                         {getEmailSubscriptionStatus(customer)}
                       </Badge>
                     </TableCell>
@@ -338,10 +338,10 @@ export default function CustomersPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="acceptsEmail" className="text-sm font-medium">Email Subscription</Label>
+              <Label htmlFor="marketingSubscribed" className="text-sm font-medium">Email Subscription</Label>
               <Select
-                value={formData.acceptsEmail ? 'subscribed' : 'not-subscribed'}
-                onValueChange={(value) => setFormData({ ...formData, acceptsEmail: value === 'subscribed' })}
+                value={formData.marketingSubscribed ? 'subscribed' : 'not-subscribed'}
+                onValueChange={(value) => setFormData({ ...formData, marketingSubscribed: value === 'subscribed' })}
               >
                 <SelectTrigger>
                   <SelectValue />
