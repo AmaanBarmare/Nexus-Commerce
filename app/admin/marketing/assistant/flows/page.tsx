@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { FlowManifest, FlowIssue, EmailType } from '@/types/flow';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import type { NodeProps, NodeTypes } from '@xyflow/react';
 import { CanvasChatPanel } from './CanvasChatPanel';
@@ -214,6 +215,7 @@ const nodeTypes: NodeTypes = { alyra: FlowNodeCard as NodeTypes[string] };
 
 export default function FlowsAssistantPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -243,6 +245,8 @@ export default function FlowsAssistantPage() {
     selectedNodeIdRef.current = value;
     internalSetSelectedNodeId(value);
   }, []);
+
+  // (moved below updateCanvasFromManifest)
 
   const showSelectionHint = useCallback((message: string) => {
     setSelectionHint(message);
@@ -366,6 +370,60 @@ export default function FlowsAssistantPage() {
     },
     []
   );
+
+  // Load an existing flow for editing if ?flowId= is present
+  useEffect(() => {
+    const flowId = searchParams.get('flowId');
+    if (!flowId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/flows/${flowId}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Failed to load flow');
+        if (cancelled) return;
+        const manifest = json.flow?.manifest as FlowManifest;
+        const loaded: FlowState = {
+          id: json.flow.id,
+          name: json.flow.name,
+          status: json.flow.status,
+          manifest,
+        };
+        // Build template summaries by fetching names
+        const templateIds = Array.from(
+          new Set(
+            manifest.nodes
+              .filter((n: any) => n?.type === 'action' && n?.data?.templateId)
+              .map((n: any) => String(n.data.templateId))
+          )
+        );
+        const summaries: Record<string, TemplateSummary> = {};
+        await Promise.all(
+          templateIds.map(async (id) => {
+            try {
+              const tRes = await fetch(`/api/templates/${id}`);
+              const tJson = await tRes.json();
+              if (tRes.ok) {
+                summaries[id] = { id, name: tJson.name ?? id, emailType: (tJson.meta?.emailType as EmailType) ?? 'transactional' };
+              }
+            } catch {
+              // ignore individual template failures
+            }
+          })
+        );
+        setTemplates(summaries);
+        setFlow(loaded);
+        updateCanvasFromManifest(manifest, {}, { selectedId: null });
+      } catch (e) {
+        console.error('Failed to load flow for editing', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, updateCanvasFromManifest]);
 
   const appendMessage = useCallback((message: ConversationMessage) => {
     setMessages((prev) => [...prev, message]);
@@ -990,42 +1048,6 @@ export default function FlowsAssistantPage() {
                     />
                   </ReactFlow>
 
-                  {templateDialogOpen && activeTemplateId && (
-                    <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-slate-950/60 px-6 py-10">
-                      <div className="flex h-full max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                          <div>
-                            <h3 className="text-lg font-semibold text-slate-900">
-                              {templates[activeTemplateId]?.name ?? 'Email template'}
-                            </h3>
-                            <p className="text-sm text-slate-500">
-                              Adjust the MJML design. Changes are saved to this template.
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Badge variant="secondary" className="uppercase">
-                              {templates[activeTemplateId]?.emailType ?? 'template'}
-                            </Badge>
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setTemplateDialogOpen(false);
-                                setActiveTemplateId(null);
-                              }}
-                            >
-                              Close
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex-1 overflow-hidden p-6">
-                          <div className="h-full overflow-auto rounded-xl border border-slate-200 bg-white p-4">
-                            <EmailEditor templateId={activeTemplateId} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
                   {selectedNode && (
                     <div className="pointer-events-auto absolute right-6 top-6 w-72 rounded-3xl border border-slate-200 bg-white/95 p-4 text-sm shadow-xl backdrop-blur">
                       {selectedNode.type === 'action' && selectedNode.data?.action === 'send_email' && selectedNode.data?.templateId && (
@@ -1080,13 +1102,32 @@ export default function FlowsAssistantPage() {
                               size="sm"
                               className="mt-2 h-8 text-xs"
                               onClick={() => {
-                                if (!isFullscreen) {
-                                  showSelectionHint('Enter fullscreen to edit the email template.');
+                                if (!selectedNode.data?.templateId) {
                                   return;
                                 }
-                                if (selectedNode.data?.templateId) {
-                                  setActiveTemplateId(selectedNode.data.templateId as string);
+
+                                const openTemplateDialog = () => {
+                                  setActiveTemplateId(selectedNode.data!.templateId as string);
                                   setTemplateDialogOpen(true);
+                                };
+
+                                if (!isFullscreen) {
+                                  const container = canvasContainerRef.current;
+                                  if (container?.requestFullscreen) {
+                                    container
+                                      .requestFullscreen()
+                                      .then(() => {
+                                        openTemplateDialog();
+                                      })
+                                      .catch((error) => {
+                                        console.error('Failed to enter fullscreen before opening template', error);
+                                        showSelectionHint('Full screen is required to edit templates.');
+                                      });
+                                  } else {
+                                    showSelectionHint('Full screen is required to edit templates.');
+                                  }
+                                } else {
+                                  openTemplateDialog();
                                 }
                               }}
                               disabled={!selectedNode.data?.templateId}
@@ -1094,8 +1135,8 @@ export default function FlowsAssistantPage() {
                               View template
                             </Button>
                           </div>
-                        </div>
-                      )}
+                    </div>
+                  )}
 
                   {selectedNode.type === 'trigger' && (
                     <div className="mt-3 space-y-3 text-xs text-slate-600">
@@ -1117,41 +1158,47 @@ export default function FlowsAssistantPage() {
                   )}
                     </div>
                   )}
+
+                  {templateDialogOpen && activeTemplateId && (
+                    <div className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 py-10">
+                      <div className="flex h-full max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-900">
+                              {templates[activeTemplateId]?.name ?? 'Email template'}
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                              Adjust the MJML design. Changes are saved to this template.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant="secondary" className="uppercase">
+                              {templates[activeTemplateId]?.emailType ?? 'template'}
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setTemplateDialogOpen(false);
+                                setActiveTemplateId(null);
+                              }}
+                            >
+                              Close
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex-1 overflow-hidden p-6">
+                          <div className="h-full overflow-auto rounded-xl border border-slate-200 bg-white p-4">
+                            <EmailEditor key={activeTemplateId} templateId={activeTemplateId} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
       </main>
-
-        <Dialog
-          open={templateDialogOpen}
-          onOpenChange={(open) => {
-            setTemplateDialogOpen(open);
-            if (!open) {
-              setActiveTemplateId(null);
-            }
-          }}
-        >
-          <DialogContent className="max-w-5xl">
-            <DialogHeader>
-              <DialogTitle>
-                {activeTemplateId && templates[activeTemplateId]
-                  ? templates[activeTemplateId].name
-                  : 'Email template'}
-              </DialogTitle>
-              <DialogDescription>
-                Preview and edit the MJML design this flow will send.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="mt-4">
-              {activeTemplateId ? (
-                <EmailEditor templateId={activeTemplateId} />
-              ) : (
-                <p className="text-sm text-muted-foreground">Template not found.</p>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
 
         <Dialog open={activateOpen} onOpenChange={setActivateOpen}>
           <DialogContent className="max-w-md">

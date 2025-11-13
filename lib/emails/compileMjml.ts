@@ -31,6 +31,12 @@ function normalizeMjml(mjml: string) {
     (_m, tag, before, after) => `<${tag}${before}${after}>`
   );
 
+  // Remove illegal `inline` attribute occasionally hallucinated by models (e.g., on <mj-table>)
+  normalized = normalized.replace(
+    /<(mj-[\w-]+)([^>]*?)\sinline="[^"]*"([^>]*)>/g,
+    (_m, tag, before, after) => `<${tag}${before}${after}>`
+  );
+
   // Normalize any font-family values anywhere:
   // - strip inner quotes
   // - collapse double commas

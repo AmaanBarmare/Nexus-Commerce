@@ -15,8 +15,8 @@ const FlowManifestSchema = z.object({
         x: z.number(),
         y: z.number(),
       }),
-      config: z.record(z.any()).optional(),
-      data: z.record(z.any()).optional(),
+      config: z.record(z.any()).nullable().optional(),
+      data: z.record(z.any()).nullable().optional(),
     })
   ),
   edges: z.array(
@@ -24,7 +24,7 @@ const FlowManifestSchema = z.object({
       id: z.string(),
       sourceId: z.string(),
       targetId: z.string(),
-      label: z.string().optional(),
+      label: z.string().nullable().optional(),
     })
   ),
 });

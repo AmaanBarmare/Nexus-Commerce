@@ -26,6 +26,9 @@ export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [background, setBackground] = useState('#0E0E0E');
+  const [mode, setMode] = useState<'preview' | 'edit'>('preview');
+  const [mjml, setMjml] = useState<string>('');
+  const [html, setHtml] = useState<string>('');
 
   useEffect(() => {
     let isMounted = true;
@@ -42,9 +45,20 @@ export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
           throw new Error((template as any)?.error || 'Failed to load template');
         }
 
-        if (!isMounted || !containerRef.current) {
+        // Save template payload for preview/edit
+        setMjml(template.mjml || '');
+        setHtml(template.html || '');
+
+        // Only initialise the heavy editor when in edit mode
+        if (mode !== 'edit') {
           return;
         }
+
+        // Ensure the container exists (when rendering inside overlays it can be attached next frame)
+        if (!containerRef.current) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        }
+        if (!isMounted || !containerRef.current) return;
 
         if (editorRef.current) {
           editorRef.current.destroy();
@@ -57,9 +71,8 @@ export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
           fromElement: false,
           storageManager: { type: null },
           plugins: [grapesjsMjml],
-          pluginsOpts: {
-            [grapesjsMjml as unknown as string]: {},
-          },
+          // Use the official plugin key to avoid runtime issues
+          pluginsOpts: { 'grapesjs-mjml': {} },
         });
 
         editorRef.current = editor;
@@ -72,12 +85,13 @@ export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
 
         setBackground(templateBg);
         editor.Canvas.getBody().style.backgroundColor = templateBg;
-
-        setLoading(false);
       } catch (err) {
         console.error('Email editor load error', err);
         setError(err instanceof Error ? err.message : 'Failed to load editor');
-        setLoading(false);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
@@ -90,7 +104,7 @@ export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
         editorRef.current = null;
       }
     };
-  }, [templateId]);
+  }, [templateId, mode]);
 
   const handleSave = async () => {
     if (!editorRef.current) return;
@@ -161,6 +175,22 @@ export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
   return (
     <div className="flex flex-col space-y-4">
       <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={mode === 'preview' ? 'default' : 'outline'}
+            onClick={() => setMode('preview')}
+            className="h-8"
+          >
+            Preview
+          </Button>
+          <Button
+            variant={mode === 'edit' ? 'default' : 'outline'}
+            onClick={() => setMode('edit')}
+            className="h-8"
+          >
+            Edit MJML
+          </Button>
+        </div>
         <label className="text-sm font-medium text-muted-foreground">
           Background
         </label>
@@ -170,13 +200,24 @@ export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
           onChange={(event) => handleBackgroundChange(event.target.value)}
           className="h-8 w-16 cursor-pointer p-1"
         />
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving || mode !== 'edit'}>
           {saving ? 'Saving...' : 'Save'}
         </Button>
       </div>
-      <div className="rounded-md border border-border bg-white">
-        <div ref={containerRef} />
-      </div>
+      {mode === 'preview' ? (
+        <div className="rounded-md border border-border bg-white">
+          <iframe
+            title="email-preview"
+            className="h-[70vh] w-full"
+            style={{ backgroundColor: background }}
+            srcDoc={html || '<div style=\"padding:24px;color:#64748b;font:14px ui-sans-serif,system-ui\">This template has no HTML yet.</div>'}
+          />
+        </div>
+      ) : (
+        <div className="rounded-md border border-border bg-white">
+          <div ref={containerRef} />
+        </div>
+      )}
     </div>
   );
 }

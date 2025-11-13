@@ -131,9 +131,22 @@ export async function searchSimilarDocuments(
  * Get RAG context for email generation
  * Retrieves relevant brand documents based on query
  */
+const DEFAULT_RAG_CATEGORIES = [
+  // Primary documents seeded in scripts/seedBrandDocs.ts
+  'brand_voice',
+  'brand_story',
+  'philosophy',
+  'ritual',
+  'product',
+  // Legacy categories kept for forward compatibility
+  'product_info',
+  'brand_tone',
+  'legal',
+];
+
 export async function getRAGContext(
   query: string,
-  categories: string[] = ['brand_tone', 'product_info', 'legal']
+  categories: string[] = DEFAULT_RAG_CATEGORIES
 ): Promise<string> {
   const contexts: string[] = [];
 
