@@ -17,6 +17,7 @@ export const dynamic = 'force-dynamic';
 
 const RequestSchema = z.object({
   prompt: z.string().min(1, 'Prompt is required'),
+  context: z.any().optional(),
 });
 
 type AssistantResponse = {
@@ -226,6 +227,68 @@ function ensureMarketingConsent(manifest: FlowManifest) {
   }
 }
 
+const LAYOUT_COLUMNS: Array<FlowManifestNode['type'] | 'other'> = [
+  'trigger',
+  'condition',
+  'delay',
+  'action',
+  'other',
+];
+
+function requiresFallbackLayout(manifest: FlowManifest) {
+  const seen = new Map<string, number>();
+  let hasDuplicate = false;
+
+  for (const node of manifest.nodes) {
+    const key = `${Math.round(node.position?.x ?? 0)}:${Math.round(node.position?.y ?? 0)}`;
+    const count = (seen.get(key) ?? 0) + 1;
+    seen.set(key, count);
+    if (count > 1) {
+      hasDuplicate = true;
+      break;
+    }
+  }
+
+  const hasMissing = manifest.nodes.some(
+    (node) => !node.position || Number.isNaN(node.position.x) || Number.isNaN(node.position.y)
+  );
+
+  return hasDuplicate || hasMissing;
+}
+
+function applyFallbackLayout(manifest: FlowManifest) {
+  if (!requiresFallbackLayout(manifest)) {
+    return;
+  }
+
+  const columns = new Map<string, FlowManifestNode[]>();
+  for (const key of LAYOUT_COLUMNS) {
+    columns.set(key, []);
+  }
+
+  for (const node of manifest.nodes) {
+    const columnKey = LAYOUT_COLUMNS.includes(node.type) ? node.type : 'other';
+    const bucket = columns.get(columnKey) ?? columns.get('other')!;
+    bucket.push(node);
+  }
+
+  const X_GAP = 280;
+  const Y_GAP = 180;
+
+  LAYOUT_COLUMNS.forEach((columnKey, columnIndex) => {
+    const bucket = columns.get(columnKey);
+    if (!bucket || bucket.length === 0) {
+      return;
+    }
+    bucket.forEach((node, rowIndex) => {
+      node.position = {
+        x: columnIndex * X_GAP,
+        y: rowIndex * Y_GAP,
+      };
+    });
+  });
+}
+
 function remapManifestIdentifiers(manifest: FlowManifest): FlowManifest {
   const nodeIdMap = new Map<string, string>();
   const nodes = manifest.nodes.map((node) => {
@@ -251,15 +314,31 @@ function remapManifestIdentifiers(manifest: FlowManifest): FlowManifest {
   };
 }
 
-function assignTemplateIds(manifest: FlowManifest, templateIds: string[], emailTypes: EmailType[]) {
+function assignTemplateIds(
+  manifest: FlowManifest,
+  templateIds: string[],
+  emailTypes: EmailType[]
+) {
   const emailNodes = manifest.nodes.filter(
     (node) => node.type === 'action' && node.data?.action === 'send_email'
   );
 
   if (emailNodes.length !== templateIds.length) {
-    throw new Error(
-      `Template count (${templateIds.length}) does not match email nodes (${emailNodes.length}).`
+    const mappedCount = Math.min(emailNodes.length, templateIds.length);
+    console.warn(
+      `[flows.generate] Template/email mismatch. Mapping ${mappedCount} templates across ${emailNodes.length} email nodes.`
     );
+
+    emailNodes.slice(mappedCount).forEach((node) => {
+      node.data = {
+        ...(node.data ?? {}),
+        templateId: node.data?.templateId,
+      };
+    });
+
+    emailNodes.splice(mappedCount);
+    templateIds.splice(mappedCount);
+    emailTypes.splice(mappedCount);
   }
 
   emailNodes.forEach((node, index) => {
@@ -269,6 +348,19 @@ function assignTemplateIds(manifest: FlowManifest, templateIds: string[], emailT
       emailType: node.data?.emailType ?? emailTypes[index],
     };
   });
+}
+
+function pruneInvalidEdges(manifest: FlowManifest) {
+  const originalCount = manifest.edges.length;
+  manifest.edges = manifest.edges.filter(
+    (edge) => edge.sourceId && edge.targetId
+  );
+
+  if (manifest.edges.length !== originalCount) {
+    console.warn(
+      `[flows.generate] Removed ${originalCount - manifest.edges.length} edge(s) missing endpoints from manifest.`
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -301,9 +393,30 @@ export async function POST(request: NextRequest) {
 
     ensureDefaultPositions(parsed.manifest);
     ensureMarketingConsent(parsed.manifest);
+    applyFallbackLayout(parsed.manifest);
+    pruneInvalidEdges(parsed.manifest);
+
+    const emailNodesInManifest = parsed.manifest.nodes.filter(
+      (node) => node.type === 'action' && node.data?.action === 'send_email'
+    );
+
+    if (parsed.templates.length > emailNodesInManifest.length) {
+      console.warn(
+        `[flows.generate] Trimming ${parsed.templates.length - emailNodesInManifest.length} extra template(s) from assistant response.`
+      );
+      parsed.templates = parsed.templates.slice(0, emailNodesInManifest.length);
+    }
+
+    if (emailNodesInManifest.length > parsed.templates.length) {
+      console.warn(
+        `[flows.generate] Assistant returned ${parsed.templates.length} template(s) for ${emailNodesInManifest.length} email node(s). Some nodes will remain without templates.`
+      );
+    }
+
+    const templatesForCreation = parsed.templates.slice(0, emailNodesInManifest.length);
 
     const templateRecords = await Promise.all(
-      parsed.templates.map(async (template) => {
+      templatesForCreation.map(async (template) => {
         const html = await compileMjml(template.mjml);
         return prisma.emailTemplate.create({
           data: {
@@ -322,7 +435,7 @@ export async function POST(request: NextRequest) {
     );
 
     const templateIds = templateRecords.map((record) => record.id);
-    const templateTypes = parsed.templates.map((template) => template.emailType);
+    const templateTypes = templatesForCreation.map((template) => template.emailType);
     assignTemplateIds(parsed.manifest, templateIds, templateTypes);
 
     const remappedManifest = remapManifestIdentifiers(parsed.manifest);

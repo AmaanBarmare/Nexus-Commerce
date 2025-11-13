@@ -1,11 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ReactFlowProvider, ReactFlow, Background, Node, Edge, MarkerType } from '@xyflow/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ReactFlowProvider,
+  ReactFlow,
+  Background,
+  Node,
+  Edge,
+  MarkerType,
+  Panel,
+  Position,
+  Handle,
+  applyNodeChanges,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Sparkles, AlertCircle, CheckCircle2, Gauge, Zap, Mail, Clock, Share2 } from 'lucide-react';
+import { Sparkles, AlertCircle, Gauge, Zap, Mail, Clock, Share2, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,6 +23,8 @@ import type { FlowManifest, FlowIssue, EmailType } from '@/types/flow';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import type { NodeProps, NodeTypes } from '@xyflow/react';
+import { CanvasChatPanel } from './CanvasChatPanel';
+import { EmailEditor } from './EmailEditor';
 
 const severityWeight: Record<FlowIssue['severity'], number> = {
   error: 3,
@@ -48,6 +60,82 @@ type CanvasNodeData = {
   locked?: boolean;
 };
 
+type ParsedCommand =
+  | { kind: 'set'; path: string; value: string }
+  | { kind: 'guardConsent' }
+  | { kind: 'addWait'; amount: number; unit: 'd' | 'h' };
+
+type AssistantContext = {
+  flow: { id: string; name: string };
+  selected: null | {
+    id: string;
+    type: FlowManifest['nodes'][number]['type'];
+    label: string;
+    data?: FlowManifest['nodes'][number]['data'];
+    inDegree: number;
+    outDegree: number;
+  };
+};
+
+function generateId(prefix: string) {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function cloneManifest(manifest: FlowManifest): FlowManifest {
+  return JSON.parse(JSON.stringify(manifest)) as FlowManifest;
+}
+
+function parseCommand(input: string): ParsedCommand | null {
+  const trimmed = input.trim();
+  const mSet = trimmed.match(/^\/set\s+([\w.]+)\s+(.+)/i);
+  if (mSet) {
+    const [, path, rawValue] = mSet;
+    const value = rawValue.replace(/^['"]|['"]$/g, '');
+    return { kind: 'set', path: path.toLowerCase(), value };
+  }
+
+  if (/^\/guard\s+consent/i.test(trimmed)) {
+    return { kind: 'guardConsent' };
+  }
+
+  const mAddWait = trimmed.match(/^\/add\s+wait\s+(\d+)([dh])/i);
+  if (mAddWait) {
+    return {
+      kind: 'addWait',
+      amount: Number(mAddWait[1]),
+      unit: mAddWait[2].toLowerCase() as 'd' | 'h',
+    };
+  }
+
+  return null;
+}
+
+function buildAssistantContext(flowState: FlowState | null, selectedNodeId?: string | null): AssistantContext | null {
+  if (!flowState) return null;
+
+  const { manifest } = flowState;
+  const selected = selectedNodeId
+    ? manifest.nodes.find((node) => node.id === selectedNodeId)
+    : undefined;
+
+  return {
+    flow: { id: flowState.id, name: flowState.name },
+    selected: selected
+      ? {
+          id: selected.id,
+          type: selected.type,
+          label: selected.label,
+          data: selected.data,
+          inDegree: manifest.edges.filter((edge) => edge.targetId === selected.id).length,
+          outDegree: manifest.edges.filter((edge) => edge.sourceId === selected.id).length,
+        }
+      : null,
+  };
+}
+
 function topIssue(issues: FlowIssue[] | undefined) {
   if (!issues || issues.length === 0) {
     return undefined;
@@ -70,10 +158,22 @@ function FlowNodeCard({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`min-w-[200px] rounded-lg border bg-white px-3 py-2 shadow-sm transition ${
+      className={`relative min-w-[200px] rounded-lg border bg-white px-3 py-2 shadow-sm transition ${
         selected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'
       }`}
     >
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!h-2 !w-2 !rounded-full !bg-slate-400"
+        style={{ opacity: 0 }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!h-2 !w-2 !rounded-full !bg-slate-400"
+        style={{ opacity: 0 }}
+      />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
           {nodeIcons[nodeData.kind]}
@@ -121,6 +221,7 @@ export default function FlowsAssistantPage() {
   const [templates, setTemplates] = useState<Record<string, TemplateSummary>>({});
   const [rfNodes, setRfNodes] = useState<Node<CanvasNodeData>[]>([]);
   const [rfEdges, setRfEdges] = useState<Edge[]>([]);
+  const suppressSelectionChangeRef = useRef(false);
   const [validation, setValidation] = useState<{ ok: boolean; issues: FlowIssue[] } | null>(null);
   const [issuesByNode, setIssuesByNode] = useState<Record<string, FlowIssue[]>>({});
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
@@ -128,15 +229,42 @@ export default function FlowsAssistantPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeId, internalSetSelectedNodeId] = useState<string | null>(null);
+  const selectedNodeIdRef = useRef<string | null>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [selectionHint, setSelectionHint] = useState<string | null>(null);
+  const hintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const setSelectedNodeId = useCallback((value: string | null) => {
+    selectedNodeIdRef.current = value;
+    internalSetSelectedNodeId(value);
+  }, []);
+
+  const showSelectionHint = useCallback((message: string) => {
+    setSelectionHint(message);
+    if (hintTimeoutRef.current) {
+      clearTimeout(hintTimeoutRef.current);
+    }
+    hintTimeoutRef.current = setTimeout(() => {
+      setSelectionHint(null);
+      hintTimeoutRef.current = null;
+    }, 3000);
+  }, []);
 
   const selectedNode = useMemo(() => {
     if (!flow || !selectedNodeId) return null;
     return flow.manifest.nodes.find((node) => node.id === selectedNodeId) ?? null;
-  }, [flow, selectedNodeId]);
+  }, [flow, selectedNodeId, setSelectedNodeId]);
 
   const updateCanvasFromManifest = useCallback(
-    (manifest: FlowManifest, nodeIssues: Record<string, FlowIssue[]>) => {
+    (manifest: FlowManifest, nodeIssues: Record<string, FlowIssue[]>, options?: { selectedId?: string | null }) => {
+      const selectedId =
+        options && 'selectedId' in options ? options.selectedId ?? null : selectedNodeIdRef.current;
+
       setRfNodes(
         manifest.nodes.map((node) => {
           const canvasNodeData: CanvasNodeData = {
@@ -147,34 +275,94 @@ export default function FlowsAssistantPage() {
             issue: topIssue(nodeIssues[node.id]),
             locked: node.data?.system === 'marketing_consent' || node.data?.locked === true,
           };
-          return {
+          const controlledNode: Node<CanvasNodeData> = {
             id: node.id,
             type: 'alyra',
             position: node.position ?? { x: 0, y: 0 },
             data: canvasNodeData,
+            sourcePosition: Position.Right,
+            targetPosition: Position.Left,
             draggable: canvasNodeData.locked ? false : true,
           };
+          if (selectedId) {
+            controlledNode.selected = node.id === selectedId;
+          }
+          return controlledNode;
         })
       );
 
-      setRfEdges(
-        manifest.edges.map((edge) => ({
+      const styledEdges: Edge[] = manifest.edges.map((edge) => {
+        const normalizedLabel = edge.label
+          ? String(edge.label).trim().toLowerCase()
+          : undefined;
+
+        return {
           id: edge.id,
           source: edge.sourceId,
           target: edge.targetId,
-          label: edge.label,
+          label: normalizedLabel,
+          type: 'smoothstep',
+          animated: false,
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: '#0f172a',
-            width: 22,
-            height: 22,
+            color: '#64748b',
+            width: 16,
+            height: 16,
           },
           style: {
             strokeWidth: 2,
-            stroke: '#0f172a',
+            stroke: '#64748b',
+            strokeDasharray: '6 4',
           },
-        }))
-      );
+          labelBgPadding: [4, 2],
+          labelBgBorderRadius: 6,
+          labelBgStyle: {
+            fill: 'rgba(100,116,139,0.12)',
+            stroke: 'transparent',
+          },
+          labelStyle: {
+            fill: '#475569',
+            fontSize: 11,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.02em',
+          },
+        };
+      });
+
+      // Fallback: if the assistant returns nodes but no edges, synthesize a visible left-to-right connection
+      let edgesToRender = styledEdges;
+      if (styledEdges.length === 0 && manifest.nodes.length >= 2) {
+        const sorted = manifest.nodes
+          .slice()
+          .sort(
+            (a, b) => (a.position?.x ?? 0) - (b.position?.x ?? 0)
+          );
+        edgesToRender = [];
+        for (let i = 0; i < sorted.length - 1; i++) {
+          edgesToRender.push({
+            id: `auto-edge-${sorted[i].id}-${sorted[i + 1].id}`,
+            source: sorted[i].id,
+            target: sorted[i + 1].id,
+            label: 'true',
+            type: 'smoothstep',
+            animated: false,
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: '#64748b',
+              width: 16,
+              height: 16,
+            },
+            style: {
+              strokeWidth: 2,
+              stroke: '#64748b',
+              strokeDasharray: '6 4',
+            },
+          });
+        }
+      }
+
+      setRfEdges(edgesToRender);
     },
     []
   );
@@ -182,15 +370,6 @@ export default function FlowsAssistantPage() {
   const appendMessage = useCallback((message: ConversationMessage) => {
     setMessages((prev) => [...prev, message]);
   }, []);
-
-  useEffect(() => {
-    setRfNodes((nodes) =>
-      nodes.map((node) => ({
-        ...node,
-        selected: selectedNodeId ? node.id === selectedNodeId : false,
-      }))
-    );
-  }, [selectedNodeId]);
 
   useEffect(() => {
     if (!flow) {
@@ -202,81 +381,350 @@ export default function FlowsAssistantPage() {
     }
   }, [flow, selectedNodeId]);
 
-  const handleGenerate = useCallback(async () => {
-    if (!prompt.trim()) return;
-    setIsGenerating(true);
-    setValidation(null);
-    setIssuesByNode({});
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName.toLowerCase();
+      const isTypingTarget =
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        target?.isContentEditable;
 
-    const userMessage: ConversationMessage = {
-      role: 'user',
-      content: prompt.trim(),
-      timestamp: Date.now(),
-    };
-    appendMessage(userMessage);
-
-    try {
-      const response = await fetch('/api/flows/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() }),
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || 'Failed to generate flow');
+      if (
+        event.key === '/' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey
+      ) {
+        if (!isTypingTarget) {
+          event.preventDefault();
+          chatInputRef.current?.focus();
+        }
       }
 
-      const manifest = payload.flow.manifest as FlowManifest;
-      const generatedFlow: FlowState = {
-        id: payload.flow.id,
-        name: payload.flow.name,
-        status: payload.flow.status,
-        manifest,
-      };
+      if (event.key === 'Escape' && document.activeElement === chatInputRef.current) {
+        event.preventDefault();
+        chatInputRef.current?.blur();
+      }
+    };
 
-      const templateMap: Record<string, TemplateSummary> = {};
-      (payload.templates as any[]).forEach((template: any) => {
-        templateMap[template.id] = {
-          id: template.id,
-          name: template.name,
-          emailType: template.emailType,
+    window.addEventListener('keydown', handleKeydown);
+    const handleFsChange = () => {
+      const fullscreen = Boolean(document.fullscreenElement);
+      setIsFullscreen(fullscreen);
+      if (!fullscreen) {
+        setSelectedNodeId(null);
+        setTemplateDialogOpen(false);
+        setActiveTemplateId(null);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => {
+      window.removeEventListener('keydown', handleKeydown);
+      document.removeEventListener('fullscreenchange', handleFsChange);
+    };
+  }, [setSelectedNodeId]);
+
+  useEffect(() => {
+    return () => {
+      if (hintTimeoutRef.current) {
+        clearTimeout(hintTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleGenerate = useCallback(
+    async (inputPrompt: string, context: AssistantContext | null) => {
+      const promptText = inputPrompt.trim();
+      if (!promptText) return;
+
+      setIsGenerating(true);
+      setValidation(null);
+      setIssuesByNode({});
+
+      try {
+        const response = await fetch('/api/flows/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(
+            context ? { prompt: promptText, context } : { prompt: promptText }
+          ),
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Failed to generate flow');
+        }
+
+        const manifest = payload.flow.manifest as FlowManifest;
+        const generatedFlow: FlowState = {
+          id: payload.flow.id,
+          name: payload.flow.name,
+          status: payload.flow.status,
+          manifest,
         };
-      });
 
-      setTemplates(templateMap);
-      setFlow(generatedFlow);
-      setHasPendingChanges(false);
-      updateCanvasFromManifest(manifest, {});
-      setPrompt('');
-      setSelectedNodeId(manifest.nodes[0]?.id ?? null);
+        const templateMap: Record<string, TemplateSummary> = {};
+        (payload.templates as any[]).forEach((template: any) => {
+          templateMap[template.id] = {
+            id: template.id,
+            name: template.name,
+            emailType: template.emailType,
+          };
+        });
 
-      const assistantMessage: ConversationMessage = {
-        role: 'assistant',
-        content: `Created flow “${payload.flow.name}” with ${manifest.nodes.length} nodes and ${manifest.edges.length} connections.`,
-        timestamp: Date.now(),
-      };
-      appendMessage(assistantMessage);
-    } catch (error) {
-      console.error('Flow generation failed', error);
-      appendMessage({
-        role: 'assistant',
-        content: `Unable to create flow: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: Date.now(),
-      });
-    } finally {
-      setIsGenerating(false);
+        setTemplates(templateMap);
+        setFlow(generatedFlow);
+        setHasPendingChanges(false);
+        setSelectedNodeId(null);
+        updateCanvasFromManifest(manifest, {}, { selectedId: null });
+
+        appendMessage({
+          role: 'assistant',
+          content: `Created flow “${payload.flow.name}” with ${manifest.nodes.length} nodes and ${manifest.edges.length} connections.`,
+          timestamp: Date.now(),
+        });
+      } catch (error) {
+        console.error('Flow generation failed', error);
+        appendMessage({
+          role: 'assistant',
+          content: `Unable to create flow: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: Date.now(),
+        });
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [appendMessage, setSelectedNodeId, updateCanvasFromManifest]
+  );
+
+  const handleSubmit = useCallback(async () => {
+    const userInput = prompt.trim();
+    if (!userInput) {
+      return;
     }
-  }, [appendMessage, prompt, updateCanvasFromManifest]);
 
+    const timestamp = Date.now();
+    appendMessage({ role: 'user', content: userInput, timestamp });
+    setPrompt('');
+
+    const command = parseCommand(userInput);
+
+    if (command) {
+      if (!flow) {
+        appendMessage({
+          role: 'assistant',
+          content: 'No flow yet. Generate a flow before applying inline commands.',
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      if (!selectedNodeId) {
+        appendMessage({
+          role: 'assistant',
+          content: 'Select a node first, then rerun the command.',
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      const nextManifest = cloneManifest(flow.manifest);
+      const node = nextManifest.nodes.find((n) => n.id === selectedNodeId);
+
+      if (!node) {
+        appendMessage({
+          role: 'assistant',
+          content: 'Could not locate the selected node in the manifest.',
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      let assistantResponse = '';
+      let changed = false;
+
+      if (command.kind === 'set') {
+        if (command.path === 'label') {
+          node.label = command.value;
+          assistantResponse = `Updated node label to “${command.value}”.`;
+          changed = true;
+        } else if (command.path === 'email.template' || command.path === 'email.templateid') {
+          if (node.type !== 'action') {
+            assistantResponse = 'Email template can only be set on an email action node.';
+          } else {
+            node.data = {
+              ...(node.data ?? {}),
+              templateId: command.value,
+            };
+            assistantResponse = 'Linked email action to the specified template.';
+            changed = true;
+          }
+        } else if (command.path === 'email.type') {
+          if (node.type !== 'action') {
+            assistantResponse = 'Email type updates apply only to email action nodes.';
+          } else {
+            const normalised = command.value.toLowerCase();
+            if (normalised !== 'marketing' && normalised !== 'transactional') {
+              assistantResponse = 'Email type must be either “marketing” or “transactional”.';
+            } else {
+              node.data = {
+                ...(node.data ?? {}),
+                emailType: normalised as EmailType,
+              };
+              assistantResponse = `Email type set to ${normalised}.`;
+              changed = true;
+            }
+          }
+        } else {
+          assistantResponse = `Unknown field “${command.path}”.`;
+        }
+      }
+
+      if (command.kind === 'guardConsent') {
+        if (node.type !== 'action' || node.data?.action !== 'send_email') {
+          assistantResponse = 'Consent guard only applies to email action nodes.';
+        } else if (node.data?.emailType !== 'marketing') {
+          assistantResponse = 'Consent guard is only required for marketing emails.';
+        } else {
+          const incoming = nextManifest.edges.filter((edge) => edge.targetId === node.id);
+          const hasGuard = incoming.some((edge) => {
+            const parent = nextManifest.nodes.find((n) => n.id === edge.sourceId);
+            return (
+              parent &&
+              parent.type === 'condition' &&
+              (parent.data?.system === 'marketing_consent' ||
+                parent.data?.locked === true ||
+                parent.label.toLowerCase().includes('consent'))
+            );
+          });
+
+          if (hasGuard) {
+            assistantResponse = 'Marketing consent guard already exists upstream.';
+          } else {
+            const consentNodeId = generateId('consent');
+            const consentNode = {
+              id: consentNodeId,
+              type: 'condition' as const,
+              label: 'Requires consent',
+              position: {
+                x: (node.position?.x ?? 0) - 200,
+                y: node.position?.y ?? 0,
+              },
+              data: {
+                system: 'marketing_consent',
+                locked: true,
+                field: 'marketingSubscribed',
+                operator: 'equals',
+                value: true,
+              },
+              config: {
+                field: 'marketingSubscribed',
+                operator: 'equals',
+                value: true,
+              },
+            };
+
+            nextManifest.nodes.push(consentNode as FlowManifest['nodes'][number]);
+
+            for (const edge of nextManifest.edges) {
+              if (edge.targetId === node.id) {
+                edge.targetId = consentNodeId;
+              }
+            }
+
+            nextManifest.edges.push({
+              id: generateId('edge'),
+              sourceId: consentNodeId,
+              targetId: node.id,
+              label: 'Requires consent',
+            });
+
+            assistantResponse = 'Inserted marketing consent guard.';
+            changed = true;
+          }
+        }
+      }
+
+      if (command.kind === 'addWait') {
+        const waitNodeId = generateId('delay');
+        const unitLabel = command.unit === 'd' ? 'day' : 'hour';
+        const waitNode = {
+          id: waitNodeId,
+          type: 'delay' as const,
+          label: `Wait ${command.amount} ${command.amount === 1 ? unitLabel : `${unitLabel}s`}`,
+          position: {
+            x: (node.position?.x ?? 0) + 240,
+            y: node.position?.y ?? 0,
+          },
+          data: {
+            system: 'delay',
+            delay: {
+              amount: command.amount,
+              unit: command.unit === 'd' ? 'days' : 'hours',
+            },
+          },
+        };
+
+        nextManifest.nodes.push(waitNode as FlowManifest['nodes'][number]);
+
+        const outgoingEdges = nextManifest.edges.filter((edge) => edge.sourceId === node.id);
+        for (const edge of outgoingEdges) {
+          edge.sourceId = waitNodeId;
+        }
+
+        nextManifest.edges.push({
+          id: generateId('edge'),
+          sourceId: node.id,
+          targetId: waitNodeId,
+          label: waitNode.label,
+        });
+
+        assistantResponse = `Inserted ${waitNode.label.toLowerCase()} after the selected node.`;
+        setSelectedNodeId(waitNodeId);
+        changed = true;
+      }
+
+      if (changed) {
+        setFlow((prev) => (prev ? { ...prev, manifest: nextManifest } : prev));
+        setValidation(null);
+        setIssuesByNode({});
+        updateCanvasFromManifest(nextManifest, {});
+        setHasPendingChanges(true);
+        appendMessage({
+          role: 'assistant',
+          content: assistantResponse || 'Applied edit.',
+          timestamp: Date.now(),
+        });
+      } else if (assistantResponse) {
+        appendMessage({
+          role: 'assistant',
+          content: assistantResponse,
+          timestamp: Date.now(),
+        });
+      }
+
+      return;
+    }
+
+    const context = buildAssistantContext(flow, selectedNodeId);
+    await handleGenerate(userInput, context);
+  }, [appendMessage, flow, handleGenerate, prompt, selectedNodeId, setSelectedNodeId, updateCanvasFromManifest]);
   const updateNodeInManifest = useCallback(
-    (nodeId: string, updater: (node: FlowManifest['nodes'][number]) => FlowManifest['nodes'][number]) => {
+    (
+      nodeId: string,
+      updater: (node: FlowManifest['nodes'][number]) => FlowManifest['nodes'][number],
+      options?: { skipCanvasUpdate?: boolean }
+    ) => {
       setFlow((prev) => {
         if (!prev) return prev;
         const nodes = prev.manifest.nodes.map((node) => (node.id === nodeId ? updater(node) : node));
         const manifest = { ...prev.manifest, nodes };
-        updateCanvasFromManifest(manifest, issuesByNode);
+        if (!options?.skipCanvasUpdate) {
+          updateCanvasFromManifest(manifest, issuesByNode);
+        }
         return { ...prev, manifest };
       });
       setHasPendingChanges(true);
@@ -284,21 +732,25 @@ export default function FlowsAssistantPage() {
     [issuesByNode, updateCanvasFromManifest]
   );
 
-  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
-    updateNodeInManifest(node.id, (current) => ({
-      ...current,
-      position: node.position,
-    }));
-  }, [updateNodeInManifest]);
+  const handleNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (!isFullscreen) {
+        return;
+      }
+      updateNodeInManifest(
+        node.id,
+        (current) => ({
+          ...current,
+          position: node.position,
+        }),
+        { skipCanvasUpdate: true }
+      );
+    },
+    [isFullscreen, updateNodeInManifest]
+  );
 
   const handleNodesChange = useCallback((changes: any) => {
-    setRfNodes((nds) => nds.map((node) => {
-      const change = changes.find((c: any) => c.id === node.id && c.position);
-      if (change?.position) {
-        return { ...node, position: change.position };
-      }
-      return node;
-    }));
+    setRfNodes((nds) => applyNodeChanges(changes, nds));
   }, []);
 
   const saveFlow = useCallback(async () => {
@@ -461,29 +913,126 @@ export default function FlowsAssistantPage() {
                 
               </CardHeader>
               <CardContent className="relative flex-1 p-0">
-                <div className="relative h-full min-h-[640px] bg-slate-100">
+                <div ref={canvasContainerRef} className="relative h-full min-h-[640px] bg-white">
                   <ReactFlow
                     nodes={rfNodes}
                     edges={rfEdges}
                     nodeTypes={nodeTypes}
+                    nodesDraggable={isFullscreen}
                     onNodeDragStop={handleNodeDragStop}
                     onNodesChange={handleNodesChange}
-                    onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                     onSelectionChange={({ nodes }) => {
-                      if (!nodes || nodes.length === 0) {
-                        setSelectedNodeId(null);
-                      } else {
-                        setSelectedNodeId(nodes[0].id);
+                      if (suppressSelectionChangeRef.current) {
+                        return;
                       }
+                      if (!isFullscreen) {
+                        if (nodes && nodes.length > 0) {
+                          showSelectionHint('Enter fullscreen to inspect and edit nodes.');
+                        }
+                        if (selectedNodeIdRef.current) {
+                          setSelectedNodeId(null);
+                        }
+                        return;
+                      }
+                      const nextId = nodes && nodes.length > 0 ? nodes[0].id : null;
+                      if (nextId !== selectedNodeIdRef.current) {
+                        setSelectedNodeId(nextId);
+                      }
+                    }}
+                    onPaneClick={(event) => {
+                      const target = event.target as HTMLElement | null;
+                      if (!target) return;
+                      if (target.closest('.react-flow__node') || target.closest('.react-flow__edge')) {
+                        return;
+                      }
+                      suppressSelectionChangeRef.current = true;
+                      // Clear after the current tick so React Flow's internal selection update doesn't reselect.
+                      requestAnimationFrame(() => {
+                        suppressSelectionChangeRef.current = false;
+                      });
+                      setSelectedNodeId(null);
                     }}
                     fitView
                     className="h-full"
                   >
-                    <Background gap={16} />
+                    <Background gap={16} color="#d1d5db" />
+                    <Panel position="top-right" className="rounded-full bg-slate-900/80 px-3 py-1 text-xs font-medium text-white shadow-lg">
+                      {rfEdges.length} connection{rfEdges.length === 1 ? '' : 's'}
+                    </Panel>
+                  {selectionHint && (
+                      <Panel position="top-center" className="rounded-full bg-slate-900/90 px-4 py-2 text-xs font-medium text-white shadow-lg transition">
+                        {selectionHint}
+                      </Panel>
+                    )}
+                    <Panel position="bottom-right">
+                      <Button
+                        variant="outline"
+                        className="border-white/20 bg-white/10 text-white hover:bg-white/20"
+                        onClick={async () => {
+                          if (document.fullscreenElement) {
+                            await document.exitFullscreen();
+                          } else {
+                            await canvasContainerRef.current?.requestFullscreen?.();
+                          }
+                        }}
+                        title={isFullscreen ? 'Exit full screen' : 'Full screen'}
+                      >
+                        {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                      </Button>
+                    </Panel>
+                    <CanvasChatPanel
+                      messages={messages}
+                      prompt={prompt}
+                      setPrompt={setPrompt}
+                      onSubmit={handleSubmit}
+                      busy={isGenerating}
+                      textareaRef={chatInputRef}
+                    />
                   </ReactFlow>
+
+                  {templateDialogOpen && activeTemplateId && (
+                    <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-slate-950/60 px-6 py-10">
+                      <div className="flex h-full max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-900">
+                              {templates[activeTemplateId]?.name ?? 'Email template'}
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                              Adjust the MJML design. Changes are saved to this template.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant="secondary" className="uppercase">
+                              {templates[activeTemplateId]?.emailType ?? 'template'}
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setTemplateDialogOpen(false);
+                                setActiveTemplateId(null);
+                              }}
+                            >
+                              Close
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex-1 overflow-hidden p-6">
+                          <div className="h-full overflow-auto rounded-xl border border-slate-200 bg-white p-4">
+                            <EmailEditor templateId={activeTemplateId} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {selectedNode && (
                     <div className="pointer-events-auto absolute right-6 top-6 w-72 rounded-3xl border border-slate-200 bg-white/95 p-4 text-sm shadow-xl backdrop-blur">
+                      {selectedNode.type === 'action' && selectedNode.data?.action === 'send_email' && selectedNode.data?.templateId && (
+                        <span className="sr-only">
+                          {templates[selectedNode.data.templateId as string]?.name ?? 'Email template'}
+                        </span>
+                      )}
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-base font-semibold text-slate-900">{selectedNode.label}</p>
@@ -511,75 +1060,98 @@ export default function FlowsAssistantPage() {
                       </div>
 
                       {selectedNode.type === 'action' && selectedNode.data?.action === 'send_email' && (
-                        <div className="mt-3 space-y-1 text-xs text-slate-600">
-                          <p className="font-semibold text-slate-500 uppercase tracking-wide">Email type</p>
-                          <p className="text-sm text-slate-700">
-                            {(selectedNode.data?.emailType as string) ?? 'Not specified'}
-                          </p>
+                        <div className="mt-3 space-y-3 text-xs text-slate-600">
+                          <div>
+                            <p className="font-semibold text-slate-500 uppercase tracking-wide">Email type</p>
+                            <p className="text-sm text-slate-700">
+                              {(selectedNode.data?.emailType as string) ?? 'Not specified'}
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                            <p className="font-semibold uppercase tracking-wide text-slate-500">Template</p>
+                            <p className="mt-1 text-sm text-slate-700">
+                              {selectedNode.data?.templateId
+                                ? templates[selectedNode.data.templateId as string]?.name ?? selectedNode.data.templateId
+                                : 'Not linked'}
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2 h-8 text-xs"
+                              onClick={() => {
+                                if (!isFullscreen) {
+                                  showSelectionHint('Enter fullscreen to edit the email template.');
+                                  return;
+                                }
+                                if (selectedNode.data?.templateId) {
+                                  setActiveTemplateId(selectedNode.data.templateId as string);
+                                  setTemplateDialogOpen(true);
+                                }
+                              }}
+                              disabled={!selectedNode.data?.templateId}
+                            >
+                              View template
+                            </Button>
+                          </div>
                         </div>
                       )}
 
-                      {selectedNode.type === 'trigger' && (
-                        <div className="mt-3 space-y-1 text-xs text-slate-600">
-                          <p className="font-semibold text-slate-500 uppercase tracking-wide">Trigger event</p>
-                          <p className="text-sm text-slate-700">
-                            {selectedNode.config?.event ?? 'order_created'}
-                          </p>
-                        </div>
-                      )}
+                  {selectedNode.type === 'trigger' && (
+                    <div className="mt-3 space-y-3 text-xs text-slate-600">
+                      <div>
+                        <p className="font-semibold text-slate-500 uppercase tracking-wide">Trigger event</p>
+                        <p className="text-sm text-slate-700">
+                          {selectedNode.config?.event ?? 'order_created'}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-700">
+                        {selectedNode.config?.description ??
+                          (selectedNode.config?.event === 'manual_start'
+                            ? 'Run this flow manually whenever you want to send it.'
+                            : selectedNode.config?.event === 'order_created'
+                            ? 'Runs automatically every time a new order is created.'
+                            : 'Runs whenever this trigger event fires.')}
+                      </div>
                     </div>
                   )}
-
-                  <div className="pointer-events-none absolute inset-0 flex flex-col justify-end">
-                    <div className="pointer-events-auto mx-auto mb-8 w-full max-w-xl rounded-3xl border border-white/10 bg-slate-950/85 p-5 text-white shadow-2xl backdrop-blur">
-                      <div className="max-h-48 space-y-2 overflow-y-auto pr-2">
-                        {messages.map((message, index) => (
-                          <div
-                            key={index}
-                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div
-                              className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
-                                message.role === 'user'
-                                  ? 'bg-white text-slate-900'
-                                  : 'bg-slate-800/80 text-white'
-                              }`}
-                            >
-                              {message.content}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-3 space-y-3">
-                        <Textarea
-                          value={prompt}
-                          onChange={(event) => setPrompt(event.target.value)}
-                          placeholder="Describe the flow you want..."
-                          rows={3}
-                          className="border-white/10 bg-slate-900/70 text-sm text-white placeholder:text-white/40 focus-visible:ring-white/30"
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' && !event.shiftKey) {
-                              event.preventDefault();
-                              handleGenerate();
-                            }
-                          }}
-                        />
-                        <Button
-                          onClick={handleGenerate}
-                          disabled={isGenerating || !prompt.trim()}
-                          className="w-full bg-white text-slate-900 hover:bg-slate-200"
-                        >
-                          {isGenerating ? 'Generating...' : 'Generate Flow'}
-                        </Button>
-                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
       </main>
+
+        <Dialog
+          open={templateDialogOpen}
+          onOpenChange={(open) => {
+            setTemplateDialogOpen(open);
+            if (!open) {
+              setActiveTemplateId(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-5xl">
+            <DialogHeader>
+              <DialogTitle>
+                {activeTemplateId && templates[activeTemplateId]
+                  ? templates[activeTemplateId].name
+                  : 'Email template'}
+              </DialogTitle>
+              <DialogDescription>
+                Preview and edit the MJML design this flow will send.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4">
+              {activeTemplateId ? (
+                <EmailEditor templateId={activeTemplateId} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Template not found.</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={activateOpen} onOpenChange={setActivateOpen}>
           <DialogContent className="max-w-md">

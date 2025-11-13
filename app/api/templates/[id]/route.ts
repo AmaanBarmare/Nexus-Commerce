@@ -8,13 +8,14 @@ const UpdateSchema = z.object({
   meta: z.record(z.any()).optional(),
 });
 
-type Params = {
-  params: { id: string };
+type ParamsPromise = {
+  params: Promise<{ id: string }>;
 };
 
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(_request: NextRequest, context: ParamsPromise) {
+  const { id } = await context.params;
   const template = await prisma.emailTemplate.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!template) {
@@ -31,7 +32,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
   });
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, context: ParamsPromise) {
+  const { id } = await context.params;
   try {
     const json = await request.json();
     const { mjml, meta } = UpdateSchema.parse(json);
@@ -39,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const html = await compileMjml(mjml);
 
     const updated = await prisma.emailTemplate.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         mjml,
         html,
