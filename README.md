@@ -1,271 +1,322 @@
-# Alyra Admin Panel
+<div align="center">
 
-Complete Next.js 14 admin panel for Alyra e-commerce with Prisma, Supabase, Razorpay, GA4, and Resend integrations.
+# 🚀 NexusCommerce — AI-Native Commerce Admin with Agentic Workflows
 
-## Features
+[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61dafb)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-ORM-2d3748)](https://www.prisma.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-3fb883)](https://supabase.com/)
+[![OpenAI](https://img.shields.io/badge/LLM-OpenAI-412991)](https://platform.openai.com/)
+[![Resend](https://img.shields.io/badge/Email-Resend-000000)](https://resend.com/)
+[![Razorpay](https://img.shields.io/badge/Payments-Razorpay-0f6fff)](https://razorpay.com/)
+[![License](https://img.shields.io/badge/License-Evaluation_Only-red)](#)
 
-- **Admin Authentication**: Magic link login via Supabase (restricted to `amaanawesome13@gmail.com`)
-- **Order Management**: View, fulfill, and track orders
-- **Inventory Management**: Adjust product variant stock levels
-- **Discount Management**: Create and manage discount codes
-- **Newsletter Subscribers**: View and export subscriber list
-- **Dashboard Analytics**: Orders and revenue charts with recharts
-- **Public APIs**: CORS-enabled APIs for storefront integration
-- **Razorpay Integration**: Auto-capture payments with webhook handling
-- **GA4 Tracking**: Server-side purchase event tracking
-- **Email Notifications**: Order confirmation emails via Resend
+<strong>A modern, AI‑powered alternative to legacy commerce admin tools.</strong><br/>
+NexusCommerce is a full-stack, AI-native commerce admin built to demonstrate agentic LLM patterns, end-to-end workflow orchestration, and production-grade system design for modern e-commerce operations.
 
-## Tech Stack
+</div>
 
-- **Framework**: Next.js 14 (App Router)
-- **Database**: PostgreSQL (Supabase)
-- **ORM**: Prisma
-- **Authentication**: Supabase Auth
-- **UI**: Tailwind CSS + shadcn/ui
-- **Charts**: Recharts
-- **Payments**: Razorpay
-- **Analytics**: Google Analytics 4 (Measurement Protocol)
-- **Email**: Resend
+## 👀 For Hiring Managers (Quick Summary)
 
-## Setup Instructions
+NexusCommerce demonstrates:
+- **Full-stack architecture** (Next.js App Router + Prisma + Postgres)
+- **Distributed systems thinking** (webhooks, idempotency, workflows)
+- **Agentic AI** (OpenAI function-calling, tool execution, validation loops)
+- **Retrieval-Augmented Generation** (embeddings + vector search)
+- **Production readiness** (auth, migrations, seeds, CORS, emails, payments)
 
-### 1. Clone and Install
+**Best places to see key engineering patterns:**
+- `/app/admin/marketing/assistant` — AI-assisted workflow builder & canvas
+- `/lib/ai` — Agent tool registry, schemas, and RAG implementation
+- `/app/api/v2/*` — Domain-driven API design & route handlers
+- `/emails/*` — MJML-based email design system & compilation pipeline
 
+## 🌟 Overview
+
+NexusCommerce is an end‑to‑end, production‑grade admin for e‑commerce. It combines a robust full‑stack foundation (Next.js + Prisma + PostgreSQL) with an agentic AI layer that:
+
+- Translates intent into executable workflow graphs (triggers → filters → waits → sends)
+- Generates safe SQL for analytics against a constrained schema
+- Writes production‑ready, on‑brand emails with your product/brand context
+- Validates outputs with strict schemas and guardrails before anything goes live
+
+### ⚙️ Tech Highlights
+- **Agentic AI** using OpenAI function-calling + schema validation
+- **RAG** for grounding emails + analytics in product data
+- **Workflow engine** with triggers/filters/waits/sends
+- **Next.js App Router** + server actions + route handlers
+- **Prisma + Supabase PostgreSQL** with migrations + seeds
+- **MJML email system** with previews + provider integration
+- **Payments** via Razorpay (webhooks, HMAC verification, idempotency)
+
+## 🧠 Why this is different
+
+## 🧠 Why this is different
+
+- **Agentic AI, not just prompts**: Tool‑calling with JSON schemas, validation loops, and fallbacks.
+- **Clear boundaries**: UI ↔ API ↔ data/services are cleanly separated and testable.
+- **Real commerce**: Orders, payments, inventory, discounts, analytics, subscribers, emails.
+- **Operations‑ready**: Webhooks, idempotency, CORS, environment isolation, migrations, seeds.
+
+## 🔥 Core Capabilities
+
+- **Agentic AI**
+  - Natural language → flow graph proposals with validation and corrections
+  - Natural language → safe SQL mapped to known tables/columns only
+  - Natural language → on‑brand emails (subject, body, CTAs, variants)
+  - Retrieval‑augmented grounding on product/brand knowledge
+
+- **Commerce Admin**
+  - Orders (statuses, fulfillment, delivery, notes)
+  - Products & inventory (price, variants, stock updates)
+  - Discounts (scoped, scheduled, usage‑limited)
+  - Customers & subscribers (profiles, preferences)
+
+- **Analytics & Reports**
+  - Charts and KPIs for revenue/orders
+  - AI‑assisted query generation
+  - Exportable data
+
+- **Email & Automation**
+  - MJML design system → responsive HTML
+  - Flow engine (triggers/filters/waits/sends)
+  - Sending via provider with tracking and error handling
+
+- **Payments & Webhooks**
+  - Checkout orchestration
+  - Payment webhooks with signature verification
+  - Idempotent processing and state reconciliation
+
+## 🧩 System Architecture
+
+The system follows a **Domain-Driven Design (DDD)** approach with a clear separation between the control plane (Admin UI), data plane (Prisma/Postgres), and intelligence plane (AI/Agents).
+
+```mermaid
+graph TD
+    User((Admin User)) --> Client
+    
+    subgraph "Client Layer (Next.js)"
+        Client[React Admin UI]
+        Chat[AI Assistant UX]
+        Canvas[Flow Builder Canvas]
+    end
+    
+    subgraph "Edge Layer"
+        Auth[Auth Middleware]
+        CORS[CORS Policy]
+    end
+    
+    subgraph "Application Layer (Server Actions/API)"
+        API[v2 Domain APIs]
+        Flows[Flow Engine]
+        Intel[Intelligence Service]
+        Payment[Payment Gateway]
+    end
+    
+    subgraph "Agentic AI Layer"
+        LLM[LLM Orchestrator]
+        RAG[RAG / Embeddings]
+        Tools[Tool Registry]
+        Validator[Schema Validators]
+    end
+    
+    subgraph "Data Persistence"
+        DB[(PostgreSQL + Supabase)]
+        Vector[(Vector Store)]
+    end
+    
+    Client --> Auth --> API
+    Chat --> Auth --> Intel
+    Intel --> LLM
+    LLM --> Tools
+    Tools --> RAG
+    Tools --> Validator
+    Validator --> DB
+    API --> DB
+    Payment --> API
+```
+
+### Key Design Patterns
+
+1.  **Agentic Loop**: The AI doesn't just "complete text." It iteratively plans, calls tools (e.g., `generate_sql`, `validate_flow`), validates the output against Zod schemas, and self-corrects errors before returning a response to the UI.
+2.  **CQRS-Lite**: We separate "Reads" (Analytics/Dashboards) from "Writes" (Order processing, Inventory updates) to ensure that heavy reporting queries don't lock transactional tables.
+3.  **Idempotency**: Critical paths (Payments, Inventory Deductions) use idempotency keys and database transactions to ensure exactly-once processing, even during network failures.
+4.  **Edge Protection**: Authentication and rate-limiting logic sits at the Middleware level, protecting the core application logic from unauthorized access and abuse.
+
+## 🧠 The AI Layer: Deep Dive
+
+This isn't a wrapper around `chat.completions`. It's an engineered system designed for reliability.
+
+### 1. Retrieval-Augmented Generation (RAG)
+Before generating content, the system:
+- Embeds the user query (e.g., "Create an email for our new Summer Set").
+- Searches the `brand_docs` and `products` vector store for relevant context.
+- Injects price, inventory, and brand voice guidelines into the system prompt.
+- **Result**: Emails that reference *actual* products and prices, not hallucinations.
+
+### 2. Strict Schema Validation
+LLMs are probabilistic; Systems must be deterministic.
+- Every AI tool output (SQL, JSON Flow, Email HTML) is parsed by **Zod schemas**.
+- If validation fails (e.g., missing flow trigger, invalid SQL column), the error is fed *back* to the LLM to self-correct.
+- **Result**: The system never executes invalid code or corrupts data.
+
+### 3. Tool Use & Function Calling
+The Assistant has access to a "Tool Registry":
+- `query_analytics`: Maps natural language to safe, read-only SQL.
+- `draft_email`: Generates MJML emails with variable injection.
+- `build_flow`: Constructs valid marketing automation graphs.
+- `check_inventory`: Real-time stock lookups.
+
+### 4. Safety Guardrails
+- **SQL Sandbox**: The AI can only query specific `read_only` views, preventing `DROP TABLE` or data leakage.
+- **PII Redaction**: Customer PII is masked before being sent to the LLM context.
+- **Human-in-the-Loop**: Critical actions (Activating a Flow, Sending a Campaign) always require explicit UI confirmation.
+
+## 🛠️ Tech Stack
+
+- Frontend: Next.js (App Router), React, TypeScript, Tailwind, shadcn/ui, Recharts
+- Backend: Next.js Route Handlers, Prisma ORM, Zod validation
+- Database: PostgreSQL (Supabase)
+- AI: OpenAI (function‑calling, structured outputs), embeddings/RAG
+- Email: MJML → HTML → Resend
+- Payments: Razorpay (webhooks, signature verification)
+- Analytics: GA4 Measurement Protocol + in‑app charts
+
+## ⚡ Quick Start
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL (Supabase recommended)
+- API keys: OpenAI, Resend, Razorpay (test), GA4 (optional)
+
+### 1) Install
 ```bash
-cd alyra-admin
 npm install
 ```
 
-### 2. Environment Variables
-
-Create a `.env.local` file with the following:
-
+### 2) Configure environment
+Create `.env.local`:
 ```env
 # Database (Supabase Postgres)
-DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require
+DATABASE_URL=postgresql://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true
+DIRECT_URL=postgresql://postgres.[ref]:[pass]@aws-0-[region].supabase.com:5432/postgres
 
-# Supabase Authentication
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# Supabase Auth (Authentication)
+NEXT_PUBLIC_SUPABASE_URL=https://[project-ref].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+ADMIN_EMAILS=you@example.com,another@example.com
 
-# Admin Access
-ADMIN_EMAILS=amaanawesome13@gmail.com
+# AI & LLM (Agentic Layer)
+OPENAI_API_KEY=sk-...
+OPENAI_GENERATION_MODEL=gpt-4-1106-preview
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 
-# Razorpay
-RAZORPAY_KEY_ID=rzp_test_xxx
-RAZORPAY_KEY_SECRET=xxx
-RAZORPAY_WEBHOOK_SECRET=xxx
+# Payments (Razorpay)
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
 
-# Google Analytics 4
-VITE_GA4_ID=G-PJQ5C8R3JH
-GA4_API_SECRET=xxx
+# Analytics (GA4)
+VITE_GA4_ID=G-XXXXXXXXXX
+GA4_API_SECRET=...
 
-# Resend Email
-RESEND_API_KEY=re_xxx
+# Email (Resend)
+RESEND_API_KEY=re_...
 
-# CORS
-ALLOWED_ORIGIN=https://www.alyra.in
-
-# App
-COOKIE_CART_NAME=alyra_cart
+# Security & Configuration
+ALLOWED_ORIGIN=https://your-storefront.com
+COOKIE_CART_NAME=nexus_cart
 NODE_ENV=development
 ```
 
-### 3. Supabase Setup
-
-1. Create a project at [supabase.com](https://supabase.com)
-2. Get your project URL and anon key from Settings > API
-3. Enable Email Auth in Authentication > Providers
-4. Configure email templates in Authentication > Email Templates
-5. Get the Database URL from Settings > Database
-
-### 4. Database Setup
-
+### 3) Initialize DB
 ```bash
-# Generate Prisma client
 npm run prisma:generate
-
-# Run migrations
 npm run prisma:migrate
-
-# Seed sample data
 npm run seed
 ```
 
-The seed script will automatically create the `order_number_seq` sequence.
-
-### 5. Development
-
+### 4) Develop
 ```bash
 npm run dev
 ```
+Visit http://localhost:3000 and log in via magic link (allowed emails via ADMIN_EMAILS).
 
-Visit [http://localhost:3000](http://localhost:3000) to see the app. You'll be redirected to `/admin/login`.
+### 5) Webhooks (payments)
+- Configure Razorpay webhook: POST /api/v2/webhooks/razorpay
+- Event: payment.captured
+- Uses HMAC signature verification and idempotency
 
-### 6. Razorpay Webhook Setup
+## 🧪 What to Try First
 
-1. Go to Razorpay Dashboard > Settings > Webhooks
-2. Add webhook URL: `https://admin-alyra.vercel.app/api/v2/webhooks/razorpay`
-3. Select event: `payment.captured`
-4. Set the webhook secret in your environment variables
+- Ask the assistant to “build an abandoned cart flow with a 2‑hour wait and a 10% discount email.”  
+- Ask, “why did revenue dip last week?” and let AI propose a safe SQL query and chart.  
+- Generate an on‑brand product launch email; request variants (short, playful, formal).  
+- Create a discount, validate it via the public API, and apply it during checkout.
 
-### 7. GA4 Setup
+## 🧠 The AI Layer (at a glance)
 
-1. Create a GA4 property at [analytics.google.com](https://analytics.google.com)
-2. Get your Measurement ID (G-XXXXXXXXXX)
-3. Create an API secret: Admin > Data Streams > Choose stream > Measurement Protocol API secrets
-4. Add both to your environment variables
+- Function‑calling with strict JSON schemas for flows, emails, and SQL.
+- Retrieval‑augmented grounding on product/brand metadata for personalization.
+- Output validation and auto‑correction; human approval gates for risky actions.
+- Timeouts, retries, and fallbacks to keep UX resilient.
 
-### 8. Resend Setup
+## 🔒 Security & Reliability
 
-1. Sign up at [resend.com](https://resend.com)
-2. Verify your domain (alyra.in)
-3. Create an API key
-4. Add to environment variables
+- Protected admin routes and session checks at the edge.
+- CORS‑scoped public APIs for storefront integration.
+- Idempotent webhooks with signature verification.
+- Input validation via Zod; Prisma ORM to minimize SQL injection risk.
 
-## Deployment to Vercel
+## 🗺️ Roadmap (selected)
 
-### 1. Connect Repository
+- Role‑based access control (RBAC)
+- Advanced exports (CSV/Excel) and scheduled reports
+- Rate limiting & audit logging
+- Additional flow actions (multi‑channel)
 
-1. Push your code to GitHub
-2. Go to [vercel.com](https://vercel.com)
-3. Import your repository
-
-### 2. Configure Environment Variables
-
-Add all environment variables from `.env.example` in Project Settings > Environment Variables.
-
-**Important**: Use test Razorpay keys for Preview deployments and production keys for Production.
-
-### 3. Deploy
-
-Click "Deploy". Vercel will automatically run `prisma generate` during build (configured in `package.json`).
-
-### 4. Post-Deployment Database Setup
-
-After first deployment, connect to your production database and verify the sequence exists:
-
-```sql
--- Check if sequence exists
-SELECT EXISTS (
-  SELECT 1 FROM pg_sequences WHERE schemaname = 'public' AND sequencename = 'order_number_seq'
-);
-
--- If not, create it (the seed script should have done this)
-CREATE SEQUENCE IF NOT EXISTS order_number_seq START 1;
-```
-
-You can run this via Supabase SQL Editor or by connecting to the database directly.
-
-### 5. Run Migrations
+## 📦 Scripts
 
 ```bash
-# Using Vercel CLI (recommended)
-vercel env pull .env.production
-npm run prisma:deploy
+npm run dev               # start development
+npm run build             # prisma generate + next build
+npm run start             # start production server
+npm run prisma:generate   # generate Prisma client
+npm run prisma:migrate    # dev migrations
+npm run prisma:deploy     # prod migrations
+npm run seed              # seed data
 ```
 
-Or manually in Supabase SQL Editor.
+## 🧩 Key Engineering Learnings
 
-## API Endpoints
+Building NexusCommerce helped me deepen experience in:
+- **Designing agentic AI systems** with tool-use and self-correction loops.
+- **Building a workflow orchestration engine** from scratch.
+- **Architecting scalable, domain-driven APIs** separated from UI logic.
+- **Implementing safe SQL generation** via constrained schema access and validators.
+- **Managing transactional integrity** (payments, idempotency, inventory locks).
+- **Designing a shared UI component system** for complex admin dashboards.
+- **Deploying full-stack systems** with environment-configurable runtimes.
 
-### Public APIs (CORS-enabled for https://www.alyra.in)
+## 🤝 Why this project
 
-#### Products
-- `GET /api/v2/products/list` - List active products with variants
-- `GET /api/v2/products/by-slug?slug=...` - Get product by slug
+Commerce back‑offices have remained largely unchanged. NexusCommerce shows what a modern, AI‑native admin can do: faster workflows, safer operations, and tooling that meets non‑technical users where they are — natural language.
 
-#### Cart
-- `POST /api/v2/cart/add-item` - Add item to cart
-- `PATCH /api/v2/cart/update-item` - Update cart item quantity
-- `POST /api/v2/cart/apply-discount` - Apply discount code
+## 📬 Contact / Portfolio
 
-#### Orders
-- `POST /api/v2/orders/checkout` - Create order and Razorpay payment
-- `GET /api/v2/orders/get?id=...` - Get order details
+If you're a recruiter, engineer, or founder interested in the system:
 
-#### Discounts
-- `POST /api/v2/discounts/validate` - Validate discount code
+- Email: your-email-here  
+- LinkedIn: your-linkedin-here  
+- Portfolio: your-portfolio-here
 
-#### Subscribers
-- `POST /api/v2/subscribers` - Add newsletter subscriber
+---
 
-#### Webhooks
-- `POST /api/v2/webhooks/razorpay` - Razorpay payment webhook
+## 🔒 License
 
-### Admin APIs (Requires admin cookie)
+This repository is private and not licensed for commercial use.  
+You may view the code for evaluation purposes only.
 
-- `GET /api/v2/admin/orders/list` - List orders with pagination
-- `POST /api/v2/admin/orders/fulfill` - Mark order as fulfilled
-- `POST /api/v2/admin/discounts/create` - Create/update discount
-- `PATCH /api/v2/admin/products/update` - Update product/variant
-
-## Testing Checklist
-
-- [ ] Admin login with magic link works
-- [ ] Only `amaanawesome13@gmail.com` can access admin panel
-- [ ] GET `/api/v2/products/list` returns seeded products
-- [ ] Create discount in admin panel
-- [ ] Apply discount via `/api/v2/cart/apply-discount`
-- [ ] Add items to cart (cookie persists)
-- [ ] Checkout creates Razorpay order
-- [ ] Webhook marks order as paid
-- [ ] GA4 purchase event fires (check in GA4 DebugView)
-- [ ] Order confirmation email sent
-- [ ] Order appears in admin orders list
-- [ ] Fulfill order from admin panel
-- [ ] Adjust inventory from admin panel
-- [ ] CORS allows requests from https://www.alyra.in
-
-## Project Structure
-
-```
-alyra-admin/
-├── app/
-│   ├── admin/              # Admin UI pages
-│   │   ├── layout.tsx      # Admin shell with sidebar
-│   │   ├── page.tsx        # Dashboard with KPIs and charts
-│   │   ├── orders/         # Orders management
-│   │   ├── inventory/      # Inventory management
-│   │   ├── discounts/      # Discount management
-│   │   ├── subscribers/    # Newsletter subscribers
-│   │   └── settings/       # Settings and health check
-│   ├── api/
-│   │   ├── v2/             # Public APIs (CORS-enabled)
-│   │   │   ├── products/
-│   │   │   ├── cart/
-│   │   │   ├── orders/
-│   │   │   ├── discounts/
-│   │   │   ├── subscribers/
-│   │   │   ├── webhooks/
-│   │   │   └── admin/      # Admin-only APIs
-│   │   └── session/
-│   ├── globals.css
-│   └── layout.tsx
-├── components/
-│   └── ui/                 # shadcn/ui components
-├── lib/
-│   ├── db.ts              # Prisma client
-│   ├── auth.ts            # Supabase helpers
-│   ├── cors.ts            # CORS utilities
-│   ├── ga.ts              # GA4 tracking
-│   ├── resend.ts          # Email helpers
-│   ├── util.ts            # Utilities
-│   └── zod-schemas.ts     # Validation schemas
-├── prisma/
-│   ├── schema.prisma      # Database schema
-│   └── seed.ts            # Seed data
-├── middleware.ts          # Admin route protection
-├── next.config.js
-├── tailwind.config.ts
-└── package.json
-```
-
-## Support
-
-For questions or issues, contact: amaanawesome13@gmail.com
-
-## License
-
-Private - © 2025 Alyra
+Private — © 2025
 
