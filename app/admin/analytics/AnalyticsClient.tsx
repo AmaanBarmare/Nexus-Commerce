@@ -5,6 +5,21 @@ import dynamic from 'next/dynamic';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MoreVertical } from 'lucide-react';
 import type { ChartCardProps } from '@/components/analytics/ChartCard';
 import type { AnalyticsChart, AnalyticsReport, VisualizationType } from '@/lib/analytics/types';
 
@@ -81,6 +96,9 @@ export default function AnalyticsClientPage() {
   const [chartsLoading, setChartsLoading] = useState(false);
   const [chartsError, setChartsError] = useState<string | null>(null);
   const [deletingChartId, setDeletingChartId] = useState<string | null>(null);
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const [deleteReportDialogOpen, setDeleteReportDialogOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const fetchReports = useCallback(async () => {
     setReportsLoading(true);
@@ -124,6 +142,34 @@ export default function AnalyticsClientPage() {
       setDeletingChartId(null);
     }
   }, []);
+
+  const handleDeleteReport = useCallback(async () => {
+    if (!reportToDelete) return;
+
+    setReportsError(null);
+    setDeletingReportId(reportToDelete.id);
+    try {
+      const response = await fetch(`/api/admin/analytics/reports/${reportToDelete.id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete report');
+      }
+
+      setReports((previous) => previous.filter((report) => report.id !== reportToDelete.id));
+      if (selectedReportId === reportToDelete.id) {
+        setSelectedReportId(null);
+      }
+      setDeleteReportDialogOpen(false);
+      setReportToDelete(null);
+    } catch (error) {
+      setReportsError(error instanceof Error ? error.message : 'Failed to delete report');
+    } finally {
+      setDeletingReportId(null);
+    }
+  }, [reportToDelete, selectedReportId]);
 
   const fetchCharts = useCallback(async () => {
     setChartsLoading(true);
@@ -299,13 +345,41 @@ export default function AnalyticsClientPage() {
                         return (
                           <div
                             key={report.id}
-                            className={`rounded-lg border px-4 py-3 transition ${
+                            className={`relative rounded-lg border px-4 py-3 transition ${
                               isSelected
                                 ? 'border-slate-900 bg-slate-900/5 text-slate-900'
                                 : 'border-slate-200 text-slate-700'
                             }`}
                           >
-                            <p className="text-sm font-semibold text-slate-900">{report.name}</p>
+                            <div className="absolute top-3 right-3">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                    <span className="sr-only">Open menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReportToDelete({ id: report.id, name: report.name });
+                                      setDeleteReportDialogOpen(true);
+                                    }}
+                                    disabled={deletingReportId === report.id}
+                                  >
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-900 pr-8">{report.name}</p>
                             <p className="text-xs text-slate-500">Saved {savedAt}</p>
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                               <Button
@@ -470,6 +544,37 @@ export default function AnalyticsClientPage() {
           )}
         </div>
       </section>
+
+      {/* Delete Report Confirmation Dialog */}
+      <Dialog open={deleteReportDialogOpen} onOpenChange={setDeleteReportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Analytics Report</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &quot;{reportToDelete?.name}&quot;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteReportDialogOpen(false);
+                setReportToDelete(null);
+              }}
+              disabled={deletingReportId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteReport}
+              disabled={deletingReportId !== null}
+            >
+              {deletingReportId ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

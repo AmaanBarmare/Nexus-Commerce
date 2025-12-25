@@ -87,6 +87,7 @@ export const createCustomerSchema = z.object({
 
 export const deleteCustomersSchema = z.object({
   customerIds: z.array(z.string()).min(1, 'At least one customer ID is required'),
+  deleteOrders: z.boolean().optional().default(false), // If true, delete orders first
 });
 
 export const createOrderSchema = z.object({

@@ -1027,10 +1027,18 @@ export default function FlowsAssistantPage() {
                         variant="outline"
                         className="border-white/20 bg-white/10 text-white hover:bg-white/20"
                         onClick={async () => {
-                          if (document.fullscreenElement) {
-                            await document.exitFullscreen();
-                          } else {
-                            await canvasContainerRef.current?.requestFullscreen?.();
+                          try {
+                            if (document.fullscreenElement) {
+                              await document.exitFullscreen();
+                            } else {
+                              const container = canvasContainerRef.current;
+                              if (container?.requestFullscreen) {
+                                await container.requestFullscreen();
+                              }
+                            }
+                          } catch (error) {
+                            // Avoid unhandled promise rejections that bubble into Next devtools
+                            console.error('Fullscreen toggle failed', error);
                           }
                         }}
                         title={isFullscreen ? 'Exit full screen' : 'Full screen'}

@@ -38,6 +38,9 @@ export default function CustomersPage() {
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteOrders, setDeleteOrders] = useState(false);
+  const [customersWithOrdersInfo, setCustomersWithOrdersInfo] = useState<Array<{email: string, orderCount: number}>>([]);
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -113,24 +116,35 @@ export default function CustomersPage() {
     if (selectedCustomers.length === 0) return;
 
     setDeleting(true);
+    setDeleteError(null);
     try {
       const response = await fetch('/api/v2/admin/customers/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerIds: selectedCustomers }),
+        body: JSON.stringify({ 
+          customerIds: selectedCustomers,
+          deleteOrders: deleteOrders 
+        }),
       });
 
       if (response.ok) {
+        const result = await response.json();
         setDeleteOpen(false);
         setSelectedCustomers([]);
+        setDeleteError(null);
+        setDeleteOrders(false);
+        setCustomersWithOrdersInfo([]);
         loadCustomers();
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to delete customers');
+        setDeleteError(error.error || 'Failed to delete customers');
+        if (error.customersWithOrders) {
+          setCustomersWithOrdersInfo(error.customersWithOrders);
+        }
       }
     } catch (error) {
       console.error('Error deleting customers:', error);
-      alert('Failed to delete customers');
+      setDeleteError('Failed to delete customers. Please try again.');
     } finally {
       setDeleting(false);
     }
@@ -366,44 +380,139 @@ export default function CustomersPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <Dialog open={deleteOpen} onOpenChange={(open) => {
+        setDeleteOpen(open);
+        if (!open) {
+          setDeleteError(null);
+          setDeleteOrders(false);
+          setCustomersWithOrdersInfo([]);
+        }
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-red-600">Delete Customers</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <p className="text-gray-900">
-              You are about to delete {selectedCustomers.length} customer{selectedCustomers.length !== 1 ? 's' : ''}. This action cannot be undone.
-            </p>
-            
-            <div className="bg-gray-50 p-4 rounded-md">
-              <div className="font-medium text-gray-900 mb-2">Customers to be deleted:</div>
-              <div className="space-y-1">
-                {selectedCustomers.map(customerId => {
-                  const customer = customers.find(c => c.id === customerId);
-                  return (
-                    <div key={customerId} className="text-sm">
-                      <div className="font-medium">{getCustomerName(customer!)}</div>
-                      <div className="text-gray-600">{customer!.email}</div>
+            {deleteError ? (
+              <div className="space-y-4">
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <p className="text-red-800 font-medium mb-1">Cannot Delete Customers</p>
+                  <p className="text-red-700 text-sm mb-3">{deleteError}</p>
+                  {customersWithOrdersInfo.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-red-700 text-sm font-medium mb-2">Customers with orders:</p>
+                      <ul className="text-red-600 text-sm space-y-1">
+                        {customersWithOrdersInfo.map((info, idx) => (
+                          <li key={idx}>
+                            {info.email} ({info.orderCount} order{info.orderCount !== 1 ? 's' : ''})
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <p className="text-yellow-800 text-sm font-medium mb-2">Options:</p>
+                  <ul className="text-yellow-700 text-sm space-y-1 list-disc list-inside">
+                    <li>Delete the orders first, then delete the customers</li>
+                    <li>Or manually delete orders from the Orders page</li>
+                  </ul>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="deleteOrders"
+                    checked={deleteOrders}
+                    onChange={(e) => setDeleteOrders(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="deleteOrders" className="text-sm text-gray-700">
+                    Also delete {customersWithOrdersInfo.reduce((sum, c) => sum + c.orderCount, 0)} order{customersWithOrdersInfo.reduce((sum, c) => sum + c.orderCount, 0) !== 1 ? 's' : ''} before deleting customers
+                  </label>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <p className="text-gray-900">
+                  You are about to delete {selectedCustomers.length} customer{selectedCustomers.length !== 1 ? 's' : ''}. This action cannot be undone.
+                </p>
+                
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <div className="font-medium text-gray-900 mb-2">Customers to be deleted:</div>
+                  <div className="space-y-1">
+                    {selectedCustomers.map(customerId => {
+                      const customer = customers.find(c => c.id === customerId);
+                      const orderCount = customer?.orderCount || 0;
+                      return (
+                        <div key={customerId} className="text-sm">
+                          <div className="font-medium">{getCustomerName(customer!)}</div>
+                          <div className="text-gray-600">{customer!.email}</div>
+                          {orderCount > 0 && (
+                            <div className="text-yellow-600 text-xs mt-1">
+                              ⚠️ {orderCount} order{orderCount !== 1 ? 's' : ''} will be affected
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {selectedCustomers.some(id => {
+                  const customer = customers.find(c => c.id === id);
+                  return (customer?.orderCount || 0) > 0;
+                }) && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                    <p className="text-yellow-800 text-sm font-medium mb-2">⚠️ Warning: Some customers have orders</p>
+                    <p className="text-yellow-700 text-sm mb-3">
+                      If you delete these customers, their orders will remain but will no longer be linked to a customer.
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="deleteOrdersCheck"
+                        checked={deleteOrders}
+                        onChange={(e) => setDeleteOrders(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor="deleteOrdersCheck" className="text-sm text-yellow-800">
+                        Delete orders first (recommended)
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancel
+            <Button variant="outline" onClick={() => {
+              setDeleteOpen(false);
+              setDeleteError(null);
+              setDeleteOrders(false);
+              setCustomersWithOrdersInfo([]);
+            }}>
+              {deleteError ? 'Close' : 'Cancel'}
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDelete} 
-              disabled={deleting}
-            >
-              {deleting ? 'Deleting...' : 'Delete Customers'}
-            </Button>
+            {!deleteError && (
+              <Button 
+                variant="destructive" 
+                onClick={handleDelete} 
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete Customers'}
+              </Button>
+            )}
+            {deleteError && deleteOrders && (
+              <Button 
+                variant="destructive" 
+                onClick={handleDelete} 
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete Customers & Orders'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

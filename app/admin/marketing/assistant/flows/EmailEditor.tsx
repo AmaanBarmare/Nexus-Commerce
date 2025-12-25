@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import grapesjs from 'grapesjs';
-import grapesjsMjml from 'grapesjs-mjml';
+// NOTE: grapesjs and grapesjs-mjml touch `window` at module scope.
+// To avoid SSR "window is not defined" errors, we import them lazily inside `useEffect`.
+// We intentionally do NOT import them at the top level.
 import 'grapesjs/dist/css/grapes.min.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +22,7 @@ type TemplateResponse = {
 
 export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const editorRef = useRef<grapesjs.Editor | null>(null);
+  const editorRef = useRef<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +65,12 @@ export function EmailEditor({ templateId, onSaved }: EmailEditorProps) {
           editorRef.current.destroy();
           editorRef.current = null;
         }
+
+        // Dynamically import grapesjs and the MJML plugin on the client only
+        const [{ default: grapesjs }, { default: grapesjsMjml }] = await Promise.all([
+          import('grapesjs'),
+          import('grapesjs-mjml'),
+        ]);
 
         const editor = grapesjs.init({
           container: containerRef.current,

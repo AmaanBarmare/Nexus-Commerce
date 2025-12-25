@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Alyra Admin',
-  description: 'Admin panel for Alyra e-commerce',
+  title: 'NexusCommerce Admin',
+  description: 'AI-Native Commerce Admin with Agentic Workflows',
   robots: 'noindex, nofollow',
 };
 

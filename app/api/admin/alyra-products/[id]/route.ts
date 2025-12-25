@@ -7,7 +7,7 @@ import { isAdminUser } from '@/lib/auth';
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Check admin auth using Supabase
   const isAdmin = await isAdminUser();
@@ -16,7 +16,7 @@ export async function DELETE(
   }
 
   try {
-    const productId = params.id;
+    const { id: productId } = await params;
 
     if (!productId) {
       return NextResponse.json(
@@ -64,7 +64,7 @@ export async function DELETE(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Check admin auth using Supabase
   const isAdmin = await isAdminUser();
@@ -73,7 +73,7 @@ export async function PUT(
   }
 
   try {
-    const productId = params.id;
+    const { id: productId } = await params;
     const body = await request.json();
 
     if (!productId) {
