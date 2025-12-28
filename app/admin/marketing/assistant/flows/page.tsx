@@ -1028,9 +1028,9 @@ export default function FlowsAssistantPage() {
                         className="border-white/20 bg-white/10 text-white hover:bg-white/20"
                         onClick={async () => {
                           try {
-                            if (document.fullscreenElement) {
-                              await document.exitFullscreen();
-                            } else {
+                          if (document.fullscreenElement) {
+                            await document.exitFullscreen();
+                          } else {
                               const container = canvasContainerRef.current;
                               if (container?.requestFullscreen) {
                                 await container.requestFullscreen();
