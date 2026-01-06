@@ -164,13 +164,18 @@ function normalizeMjml(mjml: string) {
   );
 
   // Fix 5: Content directly inside mj-section without mj-column
-  // Pattern: <mj-section><mj-text>...</mj-text></mj-section>
-  // Solution: Wrap content in mj-column
-  // This is tricky - we need to detect content elements that should be in columns
+  // Strategy:
+  // 1) Backwards-compat simple pattern for the common case where a section contains
+  //    a single content element and no columns at all.
+  // 2) A more robust pass that scans each section and wraps any content elements
+  //    that are not currently inside an open mj-column.
   contentElements.forEach((element) => {
-    // Match mj-section that directly contains the content element (not inside mj-column)
+    // Simple case: mj-section that directly contains the content element (not inside mj-column)
     normalized = normalized.replace(
-      new RegExp(`<mj-section([^>]*)>([\\s\\S]*?)<${element}([^>]*)>([\\s\\S]*?)<\\/${element}>([\\s\\S]*?)<\\/mj-section>`, 'gi'),
+      new RegExp(
+        `<mj-section([^>]*)>([\\s\\S]*?)<${element}([^>]*)>([\\s\\S]*?)<\\/${element}>([\\s\\S]*?)<\\/mj-section>`,
+        'gi'
+      ),
       (match, sectionAttrs, before, elemAttrs, elemContent, after) => {
         // Check if there's already a mj-column in before/after
         const hasColumn = before.includes('<mj-column') || after.includes('<mj-column');
@@ -181,17 +186,82 @@ function normalizeMjml(mjml: string) {
         return match;
       }
     );
+
+    // Robust case: for each section, find this element when it is not nested in a column
+    normalized = normalized.replace(
+      /<mj-section([^>]*)>([\s\S]*?)<\/mj-section>/gi,
+      (match, sectionAttrs, sectionContent) => {
+        const escapedElement = element.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const elementRegex = new RegExp(
+          `<${escapedElement}([^>]*)>([\\s\\S]*?)<\\/${escapedElement}>`,
+          'gi'
+        );
+
+        const matches: Array<{
+          index: number;
+          fullMatch: string;
+          attrs: string;
+          content: string;
+          needsWrap: boolean;
+        }> = [];
+
+        let elementMatch;
+        while ((elementMatch = elementRegex.exec(sectionContent)) !== null) {
+          const beforeText = sectionContent.substring(0, elementMatch.index);
+          const openColumns = (beforeText.match(/<mj-column[^>]*>/gi) || []).length;
+          const closeColumns = (beforeText.match(/<\/mj-column>/gi) || []).length;
+
+          // If there is no currently-open mj-column at this point, this element is a
+          // direct child of mj-section and must be wrapped.
+          const needsWrap = openColumns <= closeColumns;
+
+          matches.push({
+            index: elementMatch.index,
+            fullMatch: elementMatch[0],
+            attrs: elementMatch[1],
+            content: elementMatch[2],
+            needsWrap,
+          });
+        }
+
+        if (matches.length === 0 || !matches.some((m) => m.needsWrap)) {
+          return match;
+        }
+
+        // Build the result by processing matches from end to start (to preserve indices)
+        let result = sectionContent;
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const m = matches[i];
+          if (!m.needsWrap) continue;
+
+          const wrapped = `<mj-column><${element}${m.attrs}>${m.content}</${element}></mj-column>`;
+          result =
+            result.substring(0, m.index) +
+            wrapped +
+            result.substring(m.index + m.fullMatch.length);
+        }
+
+        return `<mj-section${sectionAttrs}>${result}</mj-section>`;
+      }
+    );
   });
 
   // Fix 6: mj-column inside mj-column (not allowed, unwrap inner column)
   // Pattern: <mj-column><mj-column>...</mj-column></mj-column>
-  normalized = normalized.replace(
-    /<mj-column([^>]*)>([\s\S]*?)<mj-column([^>]*)>([\s\S]*?)<\/mj-column>([\s\S]*?)<\/mj-column>/gi,
-    (match, outerAttrs, before, innerAttrs, innerContent, after) => {
-      // Unwrap inner column, keep its content
-      return `<mj-column${outerAttrs}>${before}${innerContent}${after}</mj-column>`;
-    }
-  );
+  // Run this fix iteratively to catch deeply nested or repeated occurrences.
+  let nestedColumnPrevious = '';
+  let nestedColumnIterations = 0;
+  while (normalized !== nestedColumnPrevious && nestedColumnIterations < 10) {
+    nestedColumnPrevious = normalized;
+    normalized = normalized.replace(
+      /<mj-column([^>]*)>([\s\S]*?)<mj-column([^>]*)>([\s\S]*?)<\/mj-column>([\s\S]*?)<\/mj-column>/gi,
+      (_match, outerAttrs, before, _innerAttrs, innerContent, after) => {
+        // Unwrap inner column, keep its content inside the outer column
+        return `<mj-column${outerAttrs}>${before}${innerContent}${after}</mj-column>`;
+      }
+    );
+    nestedColumnIterations++;
+  }
 
   // Fix 7: Content elements directly inside mj-body (must be in mj-section > mj-column)
   // Pattern: <mj-body><mj-text>...</mj-text></mj-body>

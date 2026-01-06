@@ -45,7 +45,10 @@ marketing (promotions, newsletters, winbacks, launches).
 
 If an email is marketing, insert a condition node immediately before it that filters recipients to marketingSubscribed === true.
 
-Provide starter MJML templates for each email node with the field emailType. Use Alyra’s dark theme (#0E0E0E background), elegant serif headings, and legally compliant footer with unsubscribe for marketing. Transactional templates must be non-promotional and must not contain unsubscribe text.
+Provide starter MJML templates for each email node with the field emailType.
+- For transactional emails, closely follow the “Order confirmation” MJML layout example below: keep the same structure, spacing, hierarchy, and typographic scale, and always include the Alyra logo image from "/brand/ALYRABLACK.png" at both the top and bottom of the email.
+- For marketing emails, you may vary the layout, but you must include a legally compliant footer with an unsubscribe link, and they must be clearly non-transactional.
+Transactional templates must be non-promotional and must not contain unsubscribe text.
 
 Return strict JSON only:
 
@@ -57,7 +60,176 @@ Examples it should learn:
 
 “When a customer places an order, send a confirmation email.” → trigger: order_created → action: send_email (transactional) and no subscription condition.
 
-“If no order in 30 days, send a winback discount.” → add condition: days_since_last_order >= 30, and auto condition: marketingSubscribed === true before the email.`.trim();
+“If no order in 30 days, send a winback discount.” → add condition: days_since_last_order >= 30, and auto condition: marketingSubscribed === true before the email.
+
+Order confirmation MJML layout example for transactional emails (follow this structure and styling for transactional emails, adapting only the copy and variable placeholders to the specific use case; always use the Alyra logo at top and bottom via src="/brand/ALYRABLACK.png"):
+
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="Helvetica, Arial, sans-serif" color="#111111" />
+      <mj-text font-size="14px" line-height="1.45" />
+    </mj-attributes>
+
+    <mj-style inline="inline">
+      .card { max-width: 560px; margin: 0 auto; }
+      .h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.2px; }
+      .sectionTitle { font-size: 15px; font-weight: 700; margin-top: 6px; }
+      .muted { color: #666666; }
+      .divider { border-top: 1px solid #e6e6e6; }
+      .btn-outline a {
+        border: 1px solid #111111 !important;
+        border-radius: 6px !important;
+        background: transparent !important;
+        color: #111111 !important;
+        font-weight: 700;
+      }
+      .small { font-size: 12px; }
+      .price { text-align: right; white-space: nowrap; }
+      .itemTitle { font-weight: 700; }
+      .itemMeta { color: #666666; font-size: 12px; }
+      .totalsLabel { color: #666666; }
+      .totalPaid { font-size: 18px; font-weight: 800; }
+      .footerLinks a { color: #111111 !important; text-decoration: underline; }
+    </mj-style>
+  </mj-head>
+
+  <mj-body background-color="#ffffff">
+    <mj-section padding="0">
+      <mj-column css-class="card" padding="24px 18px">
+
+        <!-- TOP LOGO -->
+        <mj-image
+          src="/brand/ALYRABLACK.png"
+          alt="ALYRA"
+          width="64px"
+          padding="0 0 12px"
+        />
+
+        <!-- HEADLINE -->
+        <mj-text css-class="h1">We’ve got it!</mj-text>
+        <mj-text>Hi {{customerName}}.</mj-text>
+
+        <!-- CONFIRMATION COPY -->
+        <mj-text padding="10px 0">
+          Thanks for your order! We’ll let you know when it’s on its way to you.
+        </mj-text>
+
+        <!-- ORDER INFO -->
+        <mj-text>
+          <span class="muted">Order number:</span>
+          <strong>{{orderNumber}}</strong><br/>
+          <span class="muted">We’ll email you when your order ships.</span>
+        </mj-text>
+
+        <mj-divider css-class="divider" padding="16px 0" />
+
+        <!-- ADDRESS -->
+        <mj-text css-class="sectionTitle">Collection address</mj-text>
+        <mj-text css-class="small">
+          {{#each shippingAddress.lines}}
+            {{this}}<br/>
+          {{/each}}
+        </mj-text>
+
+        <mj-text css-class="sectionTitle" padding="12px 0 4px">Delivery type</mj-text>
+        <mj-text css-class="small">Standard Delivery</mj-text>
+
+        <mj-divider css-class="divider" padding="16px 0" />
+
+        <!-- ITEMS -->
+        <mj-text css-class="sectionTitle">Your items in this order</mj-text>
+
+        {{#each items}}
+        <mj-section padding="8px 0">
+          <mj-column width="65%">
+            <mj-text css-class="itemTitle">{{title}}</mj-text>
+            {{#if variant}}<mj-text css-class="itemMeta">{{variant}}</mj-text>{{/if}}
+            {{#if sku}}<mj-text css-class="itemMeta">SKU: {{sku}}</mj-text>{{/if}}
+            <mj-text css-class="itemMeta">Qty: {{qty}}</mj-text>
+          </mj-column>
+          <mj-column width="35%">
+            <mj-text css-class="price"><strong>{{lineTotal.text}}</strong></mj-text>
+          </mj-column>
+        </mj-section>
+        {{/each}}
+
+        <mj-divider css-class="divider" padding="12px 0" />
+
+        <!-- TOTALS -->
+        {{#each totals.rows}}
+        <mj-section padding="2px 0">
+          <mj-column width="70%">
+            <mj-text class="totalsLabel">{{label}}</mj-text>
+          </mj-column>
+          <mj-column width="30%">
+            <mj-text class="price">{{amount.text}}</mj-text>
+          </mj-column>
+        </mj-section>
+        {{/each}}
+
+        <mj-section padding="8px 0">
+          <mj-column width="70%">
+            <mj-text class="totalPaid">Total paid</mj-text>
+          </mj-column>
+          <mj-column width="30%">
+            <mj-text class="totalPaid price">{{totals.totalPaid.text}}</mj-text>
+          </mj-column>
+        </mj-section>
+
+        <mj-divider css-class="divider" padding="16px 0" />
+
+        <!-- PAYMENT -->
+        <mj-text css-class="sectionTitle">Payment methods</mj-text>
+        <mj-text css-class="small">Paid online via Razorpay</mj-text>
+
+        <mj-text css-class="sectionTitle" padding="12px 0 4px">Billing address</mj-text>
+        <mj-text css-class="small">
+          {{#each billingAddress.lines}}
+            {{this}}<br/>
+          {{/each}}
+        </mj-text>
+
+        <mj-divider css-class="divider" padding="18px 0" />
+
+        <!-- BUTTONS -->
+        <mj-text css-class="sectionTitle">Any other questions?</mj-text>
+        <mj-text css-class="small muted">For everything else you may need to know</mj-text>
+
+        <mj-button css-class="btn-outline" href="https://www.alyra.in/shipping">DELIVERY</mj-button>
+        <mj-button css-class="btn-outline" href="https://www.alyra.in">ORDER</mj-button>
+        <mj-button css-class="btn-outline" href="https://www.alyra.in/returns">RETURNS</mj-button>
+        <mj-button css-class="btn-outline" href="https://www.alyra.in/privacy">VIEW FAQS</mj-button>
+
+        <!-- SIGN OFF -->
+        <mj-text padding="18px 0">
+          Thanks for shopping with us.<br/>
+          <strong>TEAM ALYRA</strong>
+        </mj-text>
+
+        <!-- BOTTOM LOGO -->
+        <mj-image
+          src="/brand/ALYRABLACK.png"
+          alt="ALYRA"
+          width="64px"
+          padding="6px 0 0"
+        />
+
+        <!-- FOOTER -->
+        <mj-text css-class="small footerLinks" align="center" padding="18px 0 6px">
+          <a href="https://www.alyra.in">Refer a Friend</a> |
+          <a href="https://www.alyra.in/terms">T&Cs</a> |
+          <a href="https://www.alyra.in/privacy">Privacy policy</a>
+        </mj-text>
+
+        <mj-text css-class="small muted" align="center">
+          B-609 Reena Complex, Vidyavihar, Ghatkopar West, Mumbai 400086, Maharashtra
+        </mj-text>
+
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>`.trim();
 
 const FLOW_RESPONSE_SCHEMA = {
   type: 'json_schema',

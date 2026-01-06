@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { EmailEditor } from '@/app/admin/marketing/assistant/flows/EmailEditor';
 
 type FlowListItem = {
   id: string;
@@ -29,6 +31,7 @@ export default function FlowsIndexPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'flows' | 'emails'>('flows');
+  const [previewEmail, setPreviewEmail] = useState<EmailListItem | null>(null);
 
   useEffect(() => {
     async function loadFlows() {
@@ -144,38 +147,83 @@ export default function FlowsIndexPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Emails from flows ({emails.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="divide-y divide-slate-200">
-                    {emails.map((email) => (
-                      <li key={`${email.flowId}-${email.nodeId}`} className="flex items-start justify-between gap-4 py-4">
-                        <div>
-                          <p className="font-medium text-slate-900">
-                            {email.templateName ?? email.nodeLabel}
-                          </p>
-                          <p className="text-xs text-slate-500">{email.flowName}</p>
-                          {email.nodeLabel && email.templateName && (
-                            <p className="text-xs text-slate-400">Step: {email.nodeLabel}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Badge variant="outline" className="uppercase text-xs">
-                            {email.emailType ?? 'email'}
-                          </Badge>
-                          {email.updatedAt && (
-                            <p className="text-[11px] text-slate-400">
-                              Template updated {new Date(email.updatedAt).toLocaleString()}
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Emails from flows ({emails.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="divide-y divide-slate-200">
+                      {emails.map((email) => (
+                        <li
+                          key={`${email.flowId}-${email.nodeId}`}
+                          className="flex items-start justify-between gap-4 py-4"
+                        >
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {email.templateName ?? email.nodeLabel}
                             </p>
+                            <p className="text-xs text-slate-500">{email.flowName}</p>
+                            {email.nodeLabel && email.templateName && (
+                              <p className="text-xs text-slate-400">Step: {email.nodeLabel}</p>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge variant="outline" className="uppercase text-xs">
+                              {email.emailType ?? 'email'}
+                            </Badge>
+                            {email.updatedAt && (
+                              <p className="text-[11px] text-slate-400">
+                                Template updated {new Date(email.updatedAt).toLocaleString()}
+                              </p>
+                            )}
+                            {email.templateId && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-xs"
+                                onClick={() => setPreviewEmail(email)}
+                              >
+                                Preview
+                              </Button>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                {previewEmail && previewEmail.templateId && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-6">
+                    <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+                      <div className="mb-4 flex items-center justify-between gap-4">
+                        <div>
+                          <h2 className="text-base font-semibold text-slate-900">
+                            {previewEmail.templateName ?? previewEmail.nodeLabel}
+                          </h2>
+                          <p className="text-xs text-slate-500">{previewEmail.flowName}</p>
+                          {previewEmail.nodeLabel && previewEmail.templateName && (
+                            <p className="text-xs text-slate-400">Step: {previewEmail.nodeLabel}</p>
                           )}
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPreviewEmail(null)}
+                        >
+                          Close
+                        </Button>
+                      </div>
+                      <div className="mt-2">
+                        <EmailEditor templateId={previewEmail.templateId} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )
           )}
         </div>
