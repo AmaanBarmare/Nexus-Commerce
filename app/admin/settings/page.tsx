@@ -1,21 +1,39 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Check, X } from 'lucide-react';
+import { createSupabaseServerClient } from '@/lib/auth';
 
 function isConfigured(key: string | undefined): boolean {
   return !!key && key.length > 0 && !key.includes('xxx') && !key.includes('<');
 }
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
   const config = {
     database: isConfigured(process.env.DATABASE_URL),
-    supabase: isConfigured(process.env.NEXT_PUBLIC_SUPABASE_URL) && isConfigured(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-    razorpay: isConfigured(process.env.RAZORPAY_KEY_ID) && isConfigured(process.env.RAZORPAY_KEY_SECRET),
+    supabase:
+      isConfigured(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      isConfigured(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    razorpay:
+      isConfigured(process.env.RAZORPAY_KEY_ID) &&
+      isConfigured(process.env.RAZORPAY_KEY_SECRET),
     razorpayWebhook: isConfigured(process.env.RAZORPAY_WEBHOOK_SECRET),
-    ga4: isConfigured(process.env.VITE_GA4_ID) && isConfigured(process.env.GA4_API_SECRET),
+    ga4:
+      isConfigured(process.env.GA4_PROPERTY_ID) &&
+      isConfigured(process.env.GOOGLE_CLIENT_EMAIL) &&
+      isConfigured(process.env.GOOGLE_PRIVATE_KEY) &&
+      isConfigured(process.env.GA4_DEFAULT_DATE_RANGE_DAYS),
     resend: isConfigured(process.env.RESEND_API_KEY),
     cors: isConfigured(process.env.ALLOWED_ORIGIN),
   };
+
+  const supabase = await createSupabaseServerClient();
+  const { data: adminAllowlist, error: adminError } = await supabase
+    .from('admin_allowlist')
+    .select('email, is_active, created_at')
+    .order('email', { ascending: true });
+
+  const adminRows =
+    adminError || !Array.isArray(adminAllowlist) ? [] : adminAllowlist.filter((row) => !!row.email);
 
   return (
     <div className="space-y-6">
@@ -75,7 +93,12 @@ export default function SettingsPage() {
             <HealthItem
               label="Google Analytics 4"
               configured={config.ga4}
-              envVars={['VITE_GA4_ID', 'GA4_API_SECRET']}
+              envVars={[
+                'GA4_PROPERTY_ID',
+                'GOOGLE_CLIENT_EMAIL',
+                'GOOGLE_PRIVATE_KEY',
+                'GA4_DEFAULT_DATE_RANGE_DAYS',
+              ]}
             />
             <HealthItem
               label="Resend Email"
@@ -98,13 +121,22 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {(process.env.ADMIN_EMAILS || 'amaanawesome13@gmail.com')
-              .split(',')
-              .map((email) => (
-                <div key={email} className="flex items-center gap-2">
-                  <Badge variant="outline">{email.trim()}</Badge>
-                </div>
-              ))}
+            {adminRows.length === 0 && (
+              <p className="text-sm text-gray-500">
+                Admin access is managed via the <code>admin_allowlist</code> table in Supabase.
+                Add rows there to grant admin access.
+              </p>
+            )}
+            {adminRows.map((row) => (
+              <div key={row.email} className="flex items-center gap-2">
+                <Badge variant={row.is_active ? 'outline' : 'destructive'}>
+                  {row.email}
+                </Badge>
+                {!row.is_active && (
+                  <span className="text-xs text-gray-500">(inactive)</span>
+                )}
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

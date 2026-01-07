@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { createSupabaseServerClient } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { isAdminUser } from '@/lib/auth';
 
 function toCsvValue(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -33,6 +34,11 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const report = await (prisma as any).analyticsReport.findUnique({
       where: { id: params.id },

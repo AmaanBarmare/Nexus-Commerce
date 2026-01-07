@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { compileMjml } from '@/lib/emails/compileMjml';
+import { isAdminUser } from '@/lib/auth';
 
 const UpdateSchema = z.object({
   mjml: z.string().min(1, 'MJML content is required'),
@@ -13,6 +14,11 @@ type ParamsPromise = {
 };
 
 export async function GET(_request: NextRequest, context: ParamsPromise) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await context.params;
   const template = await prisma.emailTemplate.findUnique({
     where: { id },
@@ -33,6 +39,11 @@ export async function GET(_request: NextRequest, context: ParamsPromise) {
 }
 
 export async function PUT(request: NextRequest, context: ParamsPromise) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await context.params;
   try {
     const json = await request.json();

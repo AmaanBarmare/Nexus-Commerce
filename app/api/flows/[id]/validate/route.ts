@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { validateFlow } from '@/lib/flows/validate';
 import { FlowManifest } from '@/types/flow';
+import { isAdminUser } from '@/lib/auth';
 
 const ManifestSchema = z
   .object({
@@ -36,6 +37,11 @@ type Params = {
 };
 
 export async function POST(request: NextRequest, { params }: Params) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     const manifestInput = ManifestSchema.parse(body.manifest);

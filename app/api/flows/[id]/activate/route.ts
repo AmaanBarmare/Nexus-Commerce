@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { validateFlow } from '@/lib/flows/validate';
+import { isAdminUser } from '@/lib/auth';
 
 type Params = {
   params: { id: string };
 };
 
 export async function POST(request: NextRequest, { params }: Params) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     if (!body.confirmed) {

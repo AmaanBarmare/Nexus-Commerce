@@ -3,6 +3,7 @@ import { Prisma, FlowStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { FlowManifest } from '@/types/flow';
+import { isAdminUser } from '@/lib/auth';
 
 const FlowManifestSchema = z.object({
   name: z.string(),
@@ -39,6 +40,11 @@ type Params = {
 };
 
 export async function GET(_request: NextRequest, { params }: Params) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const flow = await prisma.flow.findUnique({
     where: { id: params.id },
     include: {
@@ -66,6 +72,11 @@ export async function GET(_request: NextRequest, { params }: Params) {
 }
 
 export async function PUT(request: NextRequest, { params }: Params) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const json = await request.json();
     const { manifest, status } = UpdateSchema.parse(json);

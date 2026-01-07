@@ -7,7 +7,7 @@ export async function middleware(req: NextRequest) {
   if (!req.nextUrl.pathname.startsWith('/admin')) {
     return NextResponse.next();
   }
-  
+
   // Allow access to /admin login page
   if (req.nextUrl.pathname === '/admin') {
     return NextResponse.next();
@@ -43,12 +43,45 @@ export async function middleware(req: NextRequest) {
   );
 
   // Check if user is authenticated
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Any authenticated user can access admin dashboard
-  if (!user) {
+  if (!user?.email) {
+    console.warn('[middleware] No authenticated user found for /admin route');
     const url = req.nextUrl.clone();
     url.pathname = '/admin';
+    return NextResponse.redirect(url);
+  }
+
+  // Enforce admin_allowlist: only users whose email is present and active
+  // in the `admin_allowlist` table are allowed to access /admin pages.
+  try {
+    console.log('[middleware] Authenticated user email:', user.email);
+
+    const { data: rows, error: allowlistError } = await supabase
+      .from('admin_allowlist')
+      .select('email, is_active')
+      .eq('email', user.email.toLowerCase())
+      .eq('is_active', true);
+
+    const allowlistEntry = Array.isArray(rows) ? rows[0] : null;
+
+    if (allowlistError || !allowlistEntry?.email || allowlistEntry.is_active !== true) {
+      console.warn('[middleware] Admin allowlist check failed', {
+        allowlistError,
+        rows,
+      });
+      const url = req.nextUrl.clone();
+      url.pathname = '/admin';
+      url.searchParams.set('error', 'unauthorized');
+      return NextResponse.redirect(url);
+    }
+  } catch (error) {
+    console.error('[middleware] Failed to verify admin_allowlist:', error);
+    const url = req.nextUrl.clone();
+    url.pathname = '/admin';
+    url.searchParams.set('error', 'unauthorized');
     return NextResponse.redirect(url);
   }
 

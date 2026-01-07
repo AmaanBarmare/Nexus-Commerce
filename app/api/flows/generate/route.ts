@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { openai, GENERATION_MODEL } from '@/lib/ai/client';
 import { compileMjml } from '@/lib/emails/compileMjml';
 import { prisma } from '@/lib/db';
+import { isAdminUser } from '@/lib/auth';
 import {
   EmailType,
   FlowManifest,
@@ -536,6 +537,11 @@ function pruneInvalidEdges(manifest: FlowManifest) {
 }
 
 export async function POST(request: NextRequest) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const json = await request.json();
     const { prompt } = RequestSchema.parse(json);

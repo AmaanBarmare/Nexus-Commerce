@@ -3,8 +3,14 @@ import { z } from 'zod';
 
 import { ga4ReportRequestSchema } from '@/lib/ga4/schema';
 import { runGa4Report } from '@/lib/ga4/client';
+import { isAdminUser } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const parsed = ga4ReportRequestSchema.parse(body);

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { prisma } from '@/lib/db';
+import { isAdminUser } from '@/lib/auth';
 
 const ColumnSchema = z.object({
   name: z.string(),
@@ -39,6 +40,11 @@ function removeSensitiveColumns<T extends { columns: any[]; rows: Record<string,
 }
 
 export async function GET() {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const reports = await (prisma as any).analyticsReport.findMany({
       orderBy: { createdAt: 'desc' },
@@ -61,6 +67,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const isAdmin = await isAdminUser();
+  if (!isAdmin) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const parsed = SaveReportSchema.parse(body);

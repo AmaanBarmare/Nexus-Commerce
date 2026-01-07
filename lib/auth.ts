@@ -41,13 +41,56 @@ export async function createSupabaseServerClient() {
 }
 
 /**
- * Check if the current user is authenticated (any authenticated user can access admin)
+ * Check if the current user is an admin.
+ *
+ * Admin rule:
+ * - User is authenticated in Supabase
+ * - AND their email exists in the `admin_allowlist` table
+ * - AND the row has is_active = true
  */
 export async function isAdminUser(): Promise<boolean> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  // Any authenticated user can access admin dashboard
-  return !!user;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error('[isAdminUser] Failed to get user from Supabase:', userError);
+      return false;
+    }
+
+    if (!user?.email) {
+      console.warn('[isAdminUser] No authenticated user found');
+      return false;
+    }
+
+    const { data: rows, error: allowlistError } = await supabase
+      .from('admin_allowlist')
+      .select('email, is_active')
+      .eq('email', user.email.toLowerCase())
+      .eq('is_active', true);
+
+    const allowlistEntry = Array.isArray(rows) ? rows[0] : null;
+
+    if (allowlistError) {
+      console.error('[isAdminUser] Failed to query admin_allowlist:', allowlistError);
+      return false;
+    }
+
+    const isAdmin = !!allowlistEntry?.email && allowlistEntry.is_active === true;
+    console.log('[isAdminUser] allowlist result', {
+      userEmail: user.email,
+      isAdmin,
+      rows,
+    });
+
+    return isAdmin;
+  } catch (error) {
+    console.error('[isAdminUser] Unexpected error:', error);
+    return false;
+  }
 }
+
 
