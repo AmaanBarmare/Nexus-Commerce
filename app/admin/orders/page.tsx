@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -138,6 +138,10 @@ export default function OrdersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const importProgressTimer = useRef<number | null>(null);
 
   // Validation functions
   const validateEmail = (email: string): boolean => {
@@ -227,6 +231,59 @@ export default function OrdersPage() {
       setDiscounts(data.discounts || []);
     } catch (error) {
       console.error('Failed to fetch discounts:', error);
+    }
+  };
+
+  const handleImportCsv = async (file: File) => {
+    setImporting(true);
+    setImportResult(null);
+    setImportProgress(0);
+
+    // Clear any existing timer
+    if (importProgressTimer.current !== null) {
+      window.clearInterval(importProgressTimer.current);
+    }
+
+    // Start a fake determinate progress that moves towards 90%
+    importProgressTimer.current = window.setInterval(() => {
+      setImportProgress((prev) => {
+        if (prev >= 90) return prev;
+        return prev + 2;
+      });
+    }, 200);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const res = await fetch('/api/v2/admin/orders/import-csv', {
+        method: 'POST',
+        body: fd,
+      });
+
+      const data = await res.json();
+      setImportResult(data);
+
+      if (res.ok && data?.success) {
+        await fetchOrders();
+      }
+    } catch (error) {
+      console.error('Failed to import CSV:', error);
+      setImportResult({
+        error: 'Failed to import CSV',
+      });
+    } finally {
+      // Stop timer and complete progress
+      if (importProgressTimer.current !== null) {
+        window.clearInterval(importProgressTimer.current);
+        importProgressTimer.current = null;
+      }
+      setImportProgress(100);
+      // Give a short moment to show 100% then hide overlay
+      setTimeout(() => {
+        setImporting(false);
+        setImportProgress(0);
+      }, 700);
     }
   };
 
@@ -557,6 +614,23 @@ export default function OrdersPage() {
               }}>
                 Create Order
               </Button>
+              <label className="inline-flex items-center px-3 py-2 rounded-md border cursor-pointer text-sm bg-white hover:bg-gray-50">
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  disabled={importing}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      void handleImportCsv(f);
+                      // Reset the input so the same file can be selected again if needed
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                {importing ? 'Importing...' : 'Import CSV'}
+              </label>
               {selectedOrders.length > 0 && (
                 <Button 
                   variant="destructive" 
@@ -580,6 +654,19 @@ export default function OrdersPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {importResult && (
+            <div className="mb-4 text-sm">
+              {importResult.error ? (
+                <div className="text-red-600">
+                  {importResult.error}
+                </div>
+              ) : (
+                <pre className="bg-gray-50 border rounded p-3 text-xs max-h-64 overflow-auto">
+                  {JSON.stringify(importResult.summary, null, 2)}
+                </pre>
+              )}
+            </div>
+          )}
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
@@ -1353,6 +1440,34 @@ export default function OrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Importing Overlay */}
+      {importing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold">Importing CSV</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Please wait while we import your orders. This may take a few moments.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-200"
+                    style={{ width: `${importProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 flex items-center justify-between">
+                  Don&apos;t close this window or navigate away until the import is complete.
+                  <span className="font-medium text-gray-600">{importProgress}%</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

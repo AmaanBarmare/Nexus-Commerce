@@ -40,6 +40,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "recharts": "^2.13.3",
+    "papaparse": "^5.4.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "uglify-js": "^3.19.3",
