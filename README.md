@@ -445,4 +445,4 @@ I built NexusCommerce to demonstrate full-stack and AI engineering skills. If yo
 
 This repository is private and not licensed for commercial use. Code may be viewed for evaluation purposes only.
 
-© 2025
+© 2026
