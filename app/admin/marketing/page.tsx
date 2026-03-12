@@ -17,7 +17,7 @@ export default function MarketingPage() {
         </div>
         <h1 className="mt-8 text-4xl font-semibold text-slate-900">AI Marketing Assistant</h1>
         <p className="mt-4 text-lg text-slate-600">
-          Craft hyper-personalised flows, generate ready-to-send templates, and pull quick metrics, all in Alyra’s brand voice.
+          Craft hyper-personalised flows, generate ready-to-send templates, and pull quick metrics, all in Alyra's brand voice.
         </p>
         <div className="mt-10 flex flex-col items-center gap-3 text-sm text-slate-500">
           <span>What you can ask:</span>

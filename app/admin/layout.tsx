@@ -75,7 +75,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="px-6 py-8">
-            <h1 className="text-2xl font-bold text-gray-900">Alyra Admin</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Nexus Commerce</h1>
           </div>
 
           {/* Navigation */}

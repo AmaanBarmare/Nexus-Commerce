@@ -138,7 +138,7 @@ export default function MetricsAssistantPage() {
               <BarChart3 className="h-5 w-5" />
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold tracking-[0.35em] text-white/60">ALYRA</p>
+              <p className="text-sm font-semibold tracking-[0.35em] text-white/60">NEXUS COMMERCE</p>
               <h2 className="text-xl font-semibold">Quick Metrics Assistant</h2>
             </div>
           </div>

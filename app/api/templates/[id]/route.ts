@@ -28,11 +28,28 @@ export async function GET(_request: NextRequest, context: ParamsPromise) {
     return NextResponse.json({ error: 'Template not found' }, { status: 404 });
   }
 
+  let { html } = template;
+  const meta = template.meta as Record<string, unknown> | null;
+
+  if ((!html || meta?.needsCompilation) && template.mjml) {
+    try {
+      html = await compileMjml(template.mjml);
+      const updatedMeta = { ...(meta ?? {}), needsCompilation: undefined };
+      delete updatedMeta.needsCompilation;
+      await prisma.emailTemplate.update({
+        where: { id },
+        data: { html, meta: updatedMeta },
+      });
+    } catch (err) {
+      console.warn(`[templates.get] Lazy MJML compilation failed for ${id}`, err);
+    }
+  }
+
   return NextResponse.json({
     id: template.id,
     name: template.name,
     mjml: template.mjml,
-    html: template.html,
+    html,
     meta: template.meta,
     updatedAt: template.updatedAt,
   });

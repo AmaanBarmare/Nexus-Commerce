@@ -502,13 +502,27 @@ export default function FlowsAssistantPage() {
       setIssuesByNode({});
 
       try {
-        const response = await fetch('/api/flows/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(
-            context ? { prompt: promptText, context } : { prompt: promptText }
-          ),
-        });
+        const abortController = new AbortController();
+        const clientTimeout = setTimeout(() => abortController.abort(), 240_000);
+
+        let response: Response;
+        try {
+          response = await fetch('/api/flows/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+              context ? { prompt: promptText, context } : { prompt: promptText }
+            ),
+            signal: abortController.signal,
+          });
+        } catch (fetchErr: any) {
+          clearTimeout(clientTimeout);
+          if (fetchErr?.name === 'AbortError') {
+            throw new Error('Request timed out (>2 min). Try a simpler prompt.');
+          }
+          throw fetchErr;
+        }
+        clearTimeout(clientTimeout);
 
         const payload = await response.json();
 
@@ -915,7 +929,7 @@ export default function FlowsAssistantPage() {
                 <Sparkles className="h-5 w-5 text-amber-300" />
               </div>
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.3em] text-amber-200/70">Alyra</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-amber-200/70">NEXUS COMMERCE</p>
                 <h1 className="text-xl font-semibold">Flows & Emails Assistant</h1>
                 <Button
                   variant="outline"
@@ -965,7 +979,7 @@ export default function FlowsAssistantPage() {
                   </p>
                   <CardTitle className="text-lg font-semibold">Conversation</CardTitle>
                   <p className="text-sm text-slate-500">
-                    Describe the automation you need. The assistant designs the flow and emails in Alyra’s brand voice.
+                    Describe the automation you need. The assistant designs the flow and emails in Alyra's brand voice.
                   </p>
                 </div>
                 

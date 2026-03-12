@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { openai, GENERATION_MODEL } from '@/lib/ai/client';
-import { compileMjml } from '@/lib/emails/compileMjml';
+// MJML compilation is deferred to template-edit time to avoid blocking flow generation
 import { prisma } from '@/lib/db';
 import { isAdminUser } from '@/lib/auth';
 import {
@@ -15,6 +15,7 @@ import {
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 const RequestSchema = z.object({
   prompt: z.string().min(1, 'Prompt is required'),
@@ -30,7 +31,7 @@ type AssistantResponse = {
   }>;
 };
 
-const ASSISTANT_SYSTEM_PROMPT = `You are a flow designer for Alyra’s marketing automation.
+const ASSISTANT_SYSTEM_PROMPT = `You are a flow designer for Alyra's marketing automation.
 
 Input: a natural-language prompt.
 
@@ -546,15 +547,43 @@ export async function POST(request: NextRequest) {
     const json = await request.json();
     const { prompt } = RequestSchema.parse(json);
 
-    const completion = await openai.chat.completions.create({
-      model: GENERATION_MODEL,
-      messages: [
-        { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 1,
-      response_format: FLOW_RESPONSE_SCHEMA,
-    });
+    console.log(`[flows.generate] Calling OpenAI (model=${GENERATION_MODEL}) …`);
+    const startMs = Date.now();
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120_000);
+
+    let completion;
+    try {
+      completion = await openai.chat.completions.create(
+        {
+          model: GENERATION_MODEL,
+          messages: [
+            { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 1,
+          response_format: FLOW_RESPONSE_SCHEMA,
+        },
+        { signal: controller.signal }
+      );
+    } catch (err: any) {
+      const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        console.error(`[flows.generate] OpenAI timed out after ${elapsed}s`);
+        return NextResponse.json(
+          { error: `AI request timed out after ${elapsed}s. Try a simpler prompt or check your OpenAI model/key.` },
+          { status: 504 }
+        );
+      }
+      console.error(`[flows.generate] OpenAI error after ${elapsed}s:`, err?.message ?? err);
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+    console.log(`[flows.generate] OpenAI responded in ${elapsed}s`);
 
     const content = completion.choices[0]?.message?.content?.trim();
 
@@ -569,6 +598,7 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to parse assistant response JSON: ${(error as Error).message}`);
     }
 
+    console.log('[flows.generate] Post-processing manifest…');
     ensureDefaultPositions(parsed.manifest);
     ensureMarketingConsent(parsed.manifest);
     applyFallbackLayout(parsed.manifest);
@@ -593,16 +623,17 @@ export async function POST(request: NextRequest) {
 
     const templatesForCreation = parsed.templates.slice(0, emailNodesInManifest.length);
 
+    console.log(`[flows.generate] Storing ${templatesForCreation.length} MJML template(s) (compilation deferred)…`);
     const templateRecords = await Promise.all(
       templatesForCreation.map(async (template) => {
-        const html = await compileMjml(template.mjml);
         return prisma.emailTemplate.create({
           data: {
             name: template.name,
             mjml: template.mjml,
-            html,
+            html: '',
             meta: {
               emailType: template.emailType,
+              needsCompilation: true,
               theme: {
                 background: '#0E0E0E',
               },
@@ -611,6 +642,7 @@ export async function POST(request: NextRequest) {
         });
       })
     );
+    console.log('[flows.generate] Templates saved');
 
     const templateIds = templateRecords.map((record) => record.id);
     const templateTypes = templatesForCreation.map((template) => template.emailType);
@@ -618,6 +650,7 @@ export async function POST(request: NextRequest) {
 
     const remappedManifest = remapManifestIdentifiers(parsed.manifest);
 
+    console.log('[flows.generate] Saving flow to database…');
     const flow = await prisma.flow.create({
       data: {
         name: parsed.manifest.name,

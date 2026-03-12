@@ -1,23 +1,21 @@
-<div align="center">
-
 # NexusCommerce
 
 ### AI-Native E-Commerce Admin Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-6.17-2d3748?logo=prisma)](https://www.prisma.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-3fb883?logo=supabase)](https://supabase.com/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991)](https://platform.openai.com/)
-[![Tailwind](https://img.shields.io/badge/Tailwind-3.4-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-Evaluation_Only-red)](#license)
+[Next.js](https://nextjs.org/)
+[React](https://react.dev/)
+[TypeScript](https://www.typescriptlang.org/)
+[Prisma](https://www.prisma.io/)
+[PostgreSQL](https://supabase.com/)
+[OpenAI](https://platform.openai.com/)
+[Tailwind](https://tailwindcss.com/)
+[License](#license)
 
 **A production-grade, full-stack e-commerce admin with agentic AI workflows — built to demonstrate modern system design and AI engineering.**
 
 [Demo](#) · [Architecture](#-system-architecture) · [Getting Started](#-getting-started) · [Contact](#-contact--portfolio)
 
-</div>
+
 
 ---
 
@@ -25,17 +23,20 @@
 
 **TL;DR:** NexusCommerce is a complete e-commerce backend and admin platform with an AI-powered marketing layer. It demonstrates full-stack development, distributed systems patterns, and production-ready AI integration.
 
-| What I Showcase | Where to Look |
-|-----------------|---------------|
-| **Full-stack architecture** | Next.js 15 App Router, Prisma ORM, PostgreSQL (Supabase) |
-| **Agentic AI / LLM engineering** | `/lib/ai` — structured outputs, RAG, tool-calling patterns |
+
+| What I Showcase                  | Where to Look                                                         |
+| -------------------------------- | --------------------------------------------------------------------- |
+| **Full-stack architecture**      | Next.js 15 App Router, Prisma ORM, PostgreSQL (Supabase)              |
+| **Agentic AI / LLM engineering** | `/lib/ai` — structured outputs, RAG, tool-calling patterns            |
 | **Distributed systems thinking** | Webhooks with HMAC verification, idempotency, transactional integrity |
-| **Domain-driven API design** | `/app/api/v2/*` — versioned, CORS-aware, schema-validated |
-| **Workflow orchestration** | React Flow canvas + AI-generated marketing automation graphs |
-| **Safe SQL generation** | Constrained schema, read-only execution, Zod validation |
-| **Production-ready ops** | Auth (Supabase), migrations, seeds, environment isolation |
+| **Domain-driven API design**     | `/app/api/v2/`* — versioned, CORS-aware, schema-validated             |
+| **Workflow orchestration**       | React Flow canvas + AI-generated marketing automation graphs          |
+| **Safe SQL generation**          | Constrained schema, read-only execution, Zod validation               |
+| **Production-ready ops**         | Auth (Supabase), migrations, seeds, environment isolation             |
+
 
 **Best files to review:**
+
 - `app/admin/marketing/assistant/flows/page.tsx` — AI-assisted visual flow builder (1,200+ lines)
 - `lib/ai/generateSql.ts` — NL → SQL with allowed-table whitelist and schema validation
 - `lib/flows/runtime.ts` — Marketing automation execution engine
@@ -61,24 +62,28 @@ It serves as both a functional admin for a real storefront and a showcase for **
 
 ### Commerce Admin
 
-| Feature | Description |
-|---------|-------------|
-| **Order Management** | Full lifecycle — create, fulfill, update payment/delivery status, notes, CSV import |
-| **Product & Inventory** | CRUD, variant-level inventory, low-stock awareness |
-| **Discount Engine** | Product/order-scoped, usage limits, date ranges, min subtotal |
-| **Customer Management** | Profiles, addresses, marketing preferences, order history |
-| **Subscribers** | Newsletter signup with deduplication |
-| **Analytics Dashboard** | Revenue, orders, AOV, bar/line charts (Recharts) |
+
+| Feature                 | Description                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| **Order Management**    | Full lifecycle — create, fulfill, update payment/delivery status, notes, CSV import |
+| **Product & Inventory** | CRUD, variant-level inventory, low-stock awareness                                  |
+| **Discount Engine**     | Product/order-scoped, usage limits, date ranges, min subtotal                       |
+| **Customer Management** | Profiles, addresses, marketing preferences, order history                           |
+| **Subscribers**         | Newsletter signup with deduplication                                                |
+| **Analytics Dashboard** | Revenue, orders, AOV, bar/line charts (Recharts)                                    |
+
 
 ### AI-Powered Marketing Assistant
 
-| Capability | How It Works |
-|------------|--------------|
-| **Natural language → SQL** | User asks "revenue by day last 7 days" → constrained SQL over allowed tables only → safe execution |
-| **Natural language → GA4** | "Top 5 countries by sessions" → rule-based NL planner → GA4 Reporting API |
-| **Email generation** | RAG-grounding on product/brand docs → MJML templates → variable injection |
-| **Flow builder** | Chat: "abandoned cart flow with 2h wait and 10% discount" → AI proposes flow graph → validation → React Flow canvas |
-| **Schema validation** | All AI outputs validated with Zod before execution; failures fed back for self-correction |
+
+| Capability                 | How It Works                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Natural language → SQL** | User asks "revenue by day last 7 days" → constrained SQL over allowed tables only → safe execution                  |
+| **Natural language → GA4** | "Top 5 countries by sessions" → rule-based NL planner → GA4 Reporting API                                           |
+| **Email generation**       | RAG-grounding on product/brand docs → MJML templates → variable injection                                           |
+| **Flow builder**           | Chat: "abandoned cart flow with 2h wait and 10% discount" → AI proposes flow graph → validation → React Flow canvas |
+| **Schema validation**      | All AI outputs validated with Zod before execution; failures fed back for self-correction                           |
+
 
 ### Integrations
 
@@ -134,13 +139,15 @@ It serves as both a functional admin for a real storefront and a showcase for **
 
 ### Design Patterns
 
-| Pattern | Implementation |
-|---------|----------------|
-| **Idempotency** | `ProcessedEvent` table for webhook event IDs; 204 on duplicate |
-| **CQRS-lite** | Separate read paths (analytics, reports) from write paths (orders, inventory) |
-| **Schema-first validation** | Zod schemas on all API inputs and AI outputs |
-| **Edge protection** | Auth + allowlist in middleware before hitting app logic |
-| **Safe SQL** | Whitelist of allowed tables/columns; read-only execution; no `DROP`/`DELETE` |
+
+| Pattern                     | Implementation                                                                |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| **Idempotency**             | `ProcessedEvent` table for webhook event IDs; 204 on duplicate                |
+| **CQRS-lite**               | Separate read paths (analytics, reports) from write paths (orders, inventory) |
+| **Schema-first validation** | Zod schemas on all API inputs and AI outputs                                  |
+| **Edge protection**         | Auth + allowlist in middleware before hitting app logic                       |
+| **Safe SQL**                | Whitelist of allowed tables/columns; read-only execution; no `DROP`/`DELETE`  |
+
 
 ---
 
@@ -182,18 +189,20 @@ Before generating emails or content:
 
 ## 🛠️ Tech Stack
 
-| Layer | Technologies |
-|-------|--------------|
-| **Framework** | Next.js 15.5 (App Router), React 19 |
-| **Language** | TypeScript 5.7 |
-| **Database** | PostgreSQL (Supabase), Prisma 6.17 |
-| **Auth** | Supabase Auth (email/password, magic link), `admin_allowlist` table |
-| **UI** | Tailwind CSS, shadcn/ui (Radix), Lucide icons, Recharts |
-| **AI** | OpenAI (GPT-4o-mini, text-embedding-3-small), zod-to-json-schema |
-| **Email** | MJML → HTML (GrapeJS, `@react-email`), Resend |
-| **Payments** | Razorpay (checkout, webhooks) |
-| **Analytics** | GA4 Measurement Protocol, GA4 Reporting API |
-| **Workflows** | React Flow (@xyflow/react), custom runtime engine |
+
+| Layer         | Technologies                                                        |
+| ------------- | ------------------------------------------------------------------- |
+| **Framework** | Next.js 15.5 (App Router), React 19                                 |
+| **Language**  | TypeScript 5.7                                                      |
+| **Database**  | PostgreSQL (Supabase), Prisma 6.17                                  |
+| **Auth**      | Supabase Auth (email/password, magic link), `admin_allowlist` table |
+| **UI**        | Tailwind CSS, shadcn/ui (Radix), Lucide icons, Recharts             |
+| **AI**        | OpenAI (GPT-4o-mini, text-embedding-3-small), zod-to-json-schema    |
+| **Email**     | MJML → HTML (GrapeJS, `@react-email`), Resend                       |
+| **Payments**  | Razorpay (checkout, webhooks)                                       |
+| **Analytics** | GA4 Measurement Protocol, GA4 Reporting API                         |
+| **Workflows** | React Flow (@xyflow/react), custom runtime engine                   |
+
 
 ---
 
@@ -333,14 +342,16 @@ Visit [http://localhost:3000/admin](http://localhost:3000/admin) — you'll be r
 
 ## 🧪 Try It Yourself
 
-| Task | Where |
-|------|-------|
-| Ask "revenue by day last 7 days" | Marketing Assistant → Metrics |
-| Generate "product launch email for Summer Set" | Marketing Assistant → Email |
-| Build "abandoned cart flow, 2h wait, 10% discount" | Marketing Assistant → Flows |
-| Create order → apply discount → checkout | Orders, Discounts, Cart API |
-| Import orders from CSV | Admin → Orders → Import |
-| View GA4 traffic by country | Ask "top 5 countries by sessions" |
+
+| Task                                               | Where                             |
+| -------------------------------------------------- | --------------------------------- |
+| Ask "revenue by day last 7 days"                   | Marketing Assistant → Metrics     |
+| Generate "product launch email for Summer Set"     | Marketing Assistant → Email       |
+| Build "abandoned cart flow, 2h wait, 10% discount" | Marketing Assistant → Flows       |
+| Create order → apply discount → checkout           | Orders, Discounts, Cart API       |
+| Import orders from CSV                             | Admin → Orders → Import           |
+| View GA4 traffic by country                        | Ask "top 5 countries by sessions" |
+
 
 ---
 
@@ -348,17 +359,19 @@ Visit [http://localhost:3000/admin](http://localhost:3000/admin) — you'll be r
 
 ### Public (CORS-enabled)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v2/products/list` | List active products |
-| GET | `/api/v2/products/by-slug?slug=` | Product by slug |
-| POST | `/api/v2/cart/add-item` | Add to cart |
-| PATCH | `/api/v2/cart/update-item` | Update quantity |
-| POST | `/api/v2/cart/apply-discount` | Apply discount code |
-| POST | `/api/v2/orders/checkout` | Create order + Razorpay |
-| GET | `/api/v2/orders/get?id=` | Get order details |
-| POST | `/api/v2/discounts/validate` | Validate discount |
-| POST | `/api/v2/subscribers` | Newsletter signup |
+
+| Method | Endpoint                         | Description             |
+| ------ | -------------------------------- | ----------------------- |
+| GET    | `/api/v2/products/list`          | List active products    |
+| GET    | `/api/v2/products/by-slug?slug=` | Product by slug         |
+| POST   | `/api/v2/cart/add-item`          | Add to cart             |
+| PATCH  | `/api/v2/cart/update-item`       | Update quantity         |
+| POST   | `/api/v2/cart/apply-discount`    | Apply discount code     |
+| POST   | `/api/v2/orders/checkout`        | Create order + Razorpay |
+| GET    | `/api/v2/orders/get?id=`         | Get order details       |
+| POST   | `/api/v2/discounts/validate`     | Validate discount       |
+| POST   | `/api/v2/subscribers`            | Newsletter signup       |
+
 
 ### Admin (Protected)
 
@@ -366,9 +379,11 @@ Orders, products, discounts, customers — full CRUD. See `ARCHITECTURE.md` for 
 
 ### Webhooks
 
-| Endpoint | Service | Verification |
-|----------|---------|--------------|
-| POST `/api/v2/webhooks/razorpay` | Razorpay | HMAC SHA256 |
+
+| Endpoint                         | Service  | Verification |
+| -------------------------------- | -------- | ------------ |
+| POST `/api/v2/webhooks/razorpay` | Razorpay | HMAC SHA256  |
+
 
 ---
 
@@ -413,21 +428,23 @@ Building NexusCommerce deepened my experience in:
 
 ## 🗺️ Roadmap
 
-- [ ] Role-based access control (RBAC)
-- [ ] Rate limiting & audit logging
-- [ ] Advanced exports (CSV/Excel) and scheduled reports
-- [ ] Multi-channel flow actions (SMS, push)
-- [ ] Real-time order updates (WebSockets)
+- Role-based access control (RBAC)
+- Rate limiting & audit logging
+- Advanced exports (CSV/Excel) and scheduled reports
+- Multi-channel flow actions (SMS, push)
+- Real-time order updates (WebSockets)
 
 ---
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
-| `README.md` | This file |
+
+| Document          | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `README.md`       | This file                                       |
 | `ARCHITECTURE.md` | Detailed architecture, API reference, data flow |
-| `QUICKSTART.md` | Quick setup and testing checklist |
+| `QUICKSTART.md`   | Quick setup and testing checklist               |
+
 
 ---
 

@@ -70,7 +70,7 @@ export default function LoginPage() {
       <div className="flex items-center justify-center min-h-screen px-4">
         <Card className="w-full max-w-lg">
         <CardHeader className="space-y-2 pb-6">
-          <CardTitle className="text-3xl font-bold text-center">Alyra Admin</CardTitle>
+          <CardTitle className="text-3xl font-bold text-center">Nexus Commerce Admin</CardTitle>
           <CardDescription className="text-center text-base">
             Enter your email and password to sign in
           </CardDescription>
