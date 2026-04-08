@@ -5,9 +5,11 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'NexusCommerce Admin',
-  description: 'AI-Native Commerce Admin with Agentic Workflows',
-  robots: 'noindex, nofollow',
+  title: {
+    default: 'Nexus Commerce',
+    template: '%s · Nexus Commerce',
+  },
+  description: 'AI-native commerce admin with marketing assistants and visual flow automation.',
 };
 
 export default function RootLayout({
