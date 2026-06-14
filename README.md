@@ -1,60 +1,100 @@
 # NexusCommerce
 
-### AI-Native E-Commerce Admin Platform
+### AI‑Native E‑Commerce Admin Platform
 
-[Next.js](https://nextjs.org/)
-[React](https://react.dev/)
-[TypeScript](https://www.typescriptlang.org/)
-[Prisma](https://www.prisma.io/)
-[PostgreSQL](https://supabase.com/)
-[OpenAI](https://platform.openai.com/)
-[Tailwind](https://tailwindcss.com/)
-[License](#license)
+![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-6.17-2D3748?logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-3ECF8E?logo=supabase&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o--mini-412991?logo=openai&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-3.4-06B6D4?logo=tailwindcss&logoColor=white)
+![License](https://img.shields.io/badge/License-Private-lightgrey)
 
-**A production-grade, full-stack e-commerce admin with agentic AI workflows — built to demonstrate modern system design and AI engineering.**
+**A full‑stack e‑commerce admin with an agentic AI marketing layer — natural‑language analytics, brand‑grounded email generation, and a visual marketing‑automation flow builder.**
 
-[Demo](#) · [Architecture](#-system-architecture) · [Getting Started](#-getting-started) · [Contact](#-contact--portfolio)
+[Project Status](#-project-status--known-limitations) · [Architecture](#-system-architecture) · [Getting Started](#-getting-started) · [API](#-api-reference) · [Contact](#-contact)
 
+---
 
+## 📑 Table of Contents
+
+1. [Project Status & Known Limitations](#-project-status--known-limitations)
+2. [For Hiring Managers & Recruiters](#-for-hiring-managers--recruiters)
+3. [Overview](#-overview)
+4. [Key Features](#-key-features)
+5. [System Architecture](#-system-architecture)
+6. [AI Layer Deep Dive](#-ai-layer-deep-dive)
+7. [Tech Stack](#-tech-stack)
+8. [Data Model](#-data-model)
+9. [Project Structure](#-project-structure)
+10. [Getting Started](#-getting-started)
+11. [Environment Variables](#-environment-variables)
+12. [API Reference](#-api-reference)
+13. [Security & Reliability](#-security--reliability)
+14. [Scripts](#-scripts)
+15. [Roadmap](#-roadmap)
+16. [Documentation](#-documentation)
+17. [Contact](#-contact)
+18. [License](#-license)
+
+---
+
+## 🚦 Project Status & Known Limitations
+
+> **Read this first.** NexusCommerce is an active work‑in‑progress portfolio project. The commerce admin and the natural‑language metrics assistant are functional, but parts of the marketing/email layer are **not fully wired up yet**. The list below is intentionally honest so nothing surprises you when you run it.
+
+| Area | Status | Notes |
+| ---- | ------ | ----- |
+| Commerce admin (orders, products, inventory, discounts, customers, subscribers) | ✅ Working | Full CRUD, CSV import, charts |
+| Checkout + Razorpay order creation | ✅ Working | Transactional, monotonic order numbers |
+| Razorpay webhook (`payment.captured`) | ✅ Working | HMAC verification + idempotency |
+| **Metrics assistant** (NL → SQL / NL → GA4) | ✅ Working | Safe SQL guardrails + GA4 Reporting API |
+| **Marketing flow builder** (chat → flow graph on React Flow canvas) | ⚠️ Partial | The flow **graph** is generated and rendered, but see email items below |
+| **AI email‑generation chatbot** (the second assistant — "create emails in the brand's design" via RAG) | ❌ **Not working right now** | The brand‑design email assistant is currently non‑functional. The endpoint and RAG pipeline exist, but end‑to‑end email generation in the brand's design is broken / under repair. |
+| **Marketing flow email delivery** (the email flow that actually *sends*) | ❌ **Not working right now** | The flow runtime evaluates triggers/conditions and renders templates, but actual sending is a **placeholder** — it logs/queues instead of dispatching via the email provider. No marketing emails are delivered yet. |
+| `create_flow` intent on `/api/ai/assistant` | 🚫 Deprecated | Returns `501`; flow creation moved to `/api/flows/generate` |
+| GA4 purchase events (Measurement Protocol) | ⚠️ Unconfigured | Helper exists (`lib/ga.ts`) but Measurement‑Protocol credentials are not provisioned via env; GA4 **reporting** uses a separate service account and works |
+
+**In one sentence:** you can run the store, manage orders, and ask the assistant for analytics today — but the **brand‑design email chatbot is broken** and the **marketing flow does not actually send emails yet** (it stops at rendering/queuing). Both are tracked on the [roadmap](#-roadmap).
 
 ---
 
 ## 👀 For Hiring Managers & Recruiters
 
-**TL;DR:** NexusCommerce is a complete e-commerce backend and admin platform with an AI-powered marketing layer. It demonstrates full-stack development, distributed systems patterns, and production-ready AI integration.
+**TL;DR:** NexusCommerce is a complete e‑commerce backend and admin platform with an AI‑powered marketing layer. It demonstrates full‑stack development, distributed‑systems patterns, and production‑oriented AI integration (with a couple of in‑progress areas called out above).
 
-
-| What I Showcase                  | Where to Look                                                         |
+| What I Showcase                  | Where to Look                                                          |
 | -------------------------------- | --------------------------------------------------------------------- |
-| **Full-stack architecture**      | Next.js 15 App Router, Prisma ORM, PostgreSQL (Supabase)              |
-| **Agentic AI / LLM engineering** | `/lib/ai` — structured outputs, RAG, tool-calling patterns            |
-| **Distributed systems thinking** | Webhooks with HMAC verification, idempotency, transactional integrity |
-| **Domain-driven API design**     | `/app/api/v2/`* — versioned, CORS-aware, schema-validated             |
-| **Workflow orchestration**       | React Flow canvas + AI-generated marketing automation graphs          |
-| **Safe SQL generation**          | Constrained schema, read-only execution, Zod validation               |
-| **Production-ready ops**         | Auth (Supabase), migrations, seeds, environment isolation             |
-
+| **Full‑stack architecture**      | Next.js 15 App Router, Prisma ORM, PostgreSQL (Supabase)              |
+| **Agentic AI / LLM engineering** | `lib/ai/` — structured outputs, RAG, schema‑validated generation       |
+| **Distributed‑systems thinking** | Webhooks with HMAC verification, idempotency, transactional integrity |
+| **Domain‑driven API design**     | `app/api/v2/*` — versioned, CORS‑aware, schema‑validated              |
+| **Workflow orchestration**       | React Flow canvas + AI‑generated marketing automation graphs          |
+| **Safe SQL generation**          | Constrained schema, SELECT‑only execution, Zod validation             |
+| **Production‑oriented ops**      | Auth (Supabase allowlist), migrations, seeds, environment isolation   |
 
 **Best files to review:**
 
-- `app/admin/marketing/assistant/flows/page.tsx` — AI-assisted visual flow builder (1,200+ lines)
-- `lib/ai/generateSql.ts` — NL → SQL with allowed-table whitelist and schema validation
-- `lib/flows/runtime.ts` — Marketing automation execution engine
-- `app/api/v2/webhooks/razorpay/route.ts` — Idempotent webhook handling with signature verification
-- `lib/ai/embeddings.ts` — RAG pipeline with pgvector
-- `emails/` + `lib/emails/compileMjml.ts` — MJML → HTML email design system
+- [`app/admin/marketing/assistant/flows/page.tsx`](app/admin/marketing/assistant/flows/page.tsx) — AI‑assisted visual flow builder (~1,250 lines)
+- [`lib/ai/generateSql.ts`](lib/ai/generateSql.ts) — NL → SQL with allowed‑table/column whitelist, SELECT‑only enforcement, enum casting
+- [`app/api/flows/generate/route.ts`](app/api/flows/generate/route.ts) — NL → flow manifest + email templates (~720 lines)
+- [`lib/flows/runtime.ts`](lib/flows/runtime.ts) — Flow execution engine (consent gating, suppression) — *send step is a placeholder, see limitations*
+- [`app/api/v2/webhooks/razorpay/route.ts`](app/api/v2/webhooks/razorpay/route.ts) — Idempotent webhook handling with signature verification
+- [`lib/ai/embeddings.ts`](lib/ai/embeddings.ts) — RAG pipeline with pgvector (cosine similarity)
+- [`emails/design-system-v1.tsx`](emails/design-system-v1.tsx) + [`lib/emails/compileMjml.ts`](lib/emails/compileMjml.ts) — MJML → HTML email design system
 
 ---
 
 ## 🌟 Overview
 
-NexusCommerce is an **end-to-end e-commerce admin platform** that combines:
+NexusCommerce is an **end‑to‑end e‑commerce admin platform** built around a sample luxury‑fragrance brand (**"Alyra"**). It combines:
 
-1. **Traditional commerce operations** — Orders, inventory, discounts, customers, payments
-2. **AI-powered marketing tools** — Natural language → SQL analytics, email generation, automation flows
-3. **Production-grade infrastructure** — Auth, webhooks, idempotency, CORS, migrations
+1. **Traditional commerce operations** — Orders, inventory, discounts, customers, subscribers, payments
+2. **AI‑powered marketing tools** — Natural‑language → SQL analytics, natural‑language → GA4 reporting, brand‑grounded email generation, and visual automation flows
+3. **Production‑oriented infrastructure** — Auth, webhooks, idempotency, CORS, migrations, seeds
 
-It serves as both a functional admin for a real storefront and a showcase for **agentic AI patterns** (tool-calling, RAG, schema validation, human-in-the-loop).
+It serves as both a functional admin for a storefront and a showcase for **agentic AI patterns** (structured outputs, RAG, schema validation, human‑in‑the‑loop). Some of the marketing/email pieces are still in progress — see [Project Status](#-project-status--known-limitations).
 
 ---
 
@@ -62,36 +102,33 @@ It serves as both a functional admin for a real storefront and a showcase for **
 
 ### Commerce Admin
 
+| Feature                 | Description                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| **Order Management**    | Full lifecycle — create, fulfill, update payment/fulfillment/delivery status, notes, CSV import |
+| **Product & Inventory** | CRUD, product type (`Refill` / `Set`), inventory tracking, active/inactive status         |
+| **Discount Engine**     | Product‑ or order‑scoped, percent/fixed, usage limits, per‑customer cap, date ranges, min subtotal |
+| **Customer Management**  | Profiles, addresses, marketing consent, bounce/complaint flags, order history            |
+| **Subscribers**         | Newsletter signup with deduplication and source tracking                                  |
+| **Analytics Dashboard** | Revenue, orders, AOV, bar/line charts (Recharts); saved reports, chart conversion, CSV export |
 
-| Feature                 | Description                                                                         |
-| ----------------------- | ----------------------------------------------------------------------------------- |
-| **Order Management**    | Full lifecycle — create, fulfill, update payment/delivery status, notes, CSV import |
-| **Product & Inventory** | CRUD, variant-level inventory, low-stock awareness                                  |
-| **Discount Engine**     | Product/order-scoped, usage limits, date ranges, min subtotal                       |
-| **Customer Management** | Profiles, addresses, marketing preferences, order history                           |
-| **Subscribers**         | Newsletter signup with deduplication                                                |
-| **Analytics Dashboard** | Revenue, orders, AOV, bar/line charts (Recharts)                                    |
+### AI Marketing Assistant
 
-
-### AI-Powered Marketing Assistant
-
-
-| Capability                 | How It Works                                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Natural language → SQL** | User asks "revenue by day last 7 days" → constrained SQL over allowed tables only → safe execution                  |
-| **Natural language → GA4** | "Top 5 countries by sessions" → rule-based NL planner → GA4 Reporting API                                           |
-| **Email generation**       | RAG-grounding on product/brand docs → MJML templates → variable injection                                           |
-| **Flow builder**           | Chat: "abandoned cart flow with 2h wait and 10% discount" → AI proposes flow graph → validation → React Flow canvas |
-| **Schema validation**      | All AI outputs validated with Zod before execution; failures fed back for self-correction                           |
-
+| Capability                 | How It Works                                                                                                        | Status |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------ |
+| **Natural language → SQL** | "revenue by day last 7 days" → constrained SELECT over a whitelist of tables/columns → safe read‑only execution     | ✅ |
+| **Natural language → GA4** | "top 5 countries by sessions" → rule‑based NL planner → GA4 Reporting API (service‑account auth)                     | ✅ |
+| **Flow graph generation**  | "abandoned cart flow with 2h wait and 10% discount" → AI proposes flow manifest (nodes + edges) → React Flow canvas  | ⚠️ Graph only |
+| **Brand‑grounded email generation** | RAG over brand documents (pgvector) → MJML template manifest → visual editor                                | ❌ Not working |
+| **Flow email delivery**    | Runtime gates on consent/suppression, renders templates with Mustache, then dispatches                              | ❌ Send is a stub |
+| **Schema validation**      | All AI outputs validated with Zod (via `zod-to-json-schema` structured outputs) before use; retries on invalid JSON | ✅ |
 
 ### Integrations
 
-- **Razorpay** — Checkout, webhooks, HMAC verification, idempotent processing
-- **Google Analytics 4** — Server-side purchase events, Reporting API for NL queries
-- **Resend** — Transactional and marketing emails
-- **Supabase** — PostgreSQL database + authentication (email/password, magic link)
-- **pgvector** — Vector embeddings for RAG (brand docs, product context)
+- **Razorpay** — Order creation (REST), checkout, webhooks, HMAC SHA256 verification, idempotent processing
+- **Google Analytics 4** — Reporting API via service‑account JWT (RS256) for NL queries; Measurement Protocol helper for purchase events (*not yet provisioned*)
+- **Resend** — Transactional/marketing email provider (wired for sending; *flow runtime does not yet call it*)
+- **Supabase** — PostgreSQL database + authentication (email/password, magic link) + `admin_allowlist` gating
+- **pgvector** — Vector embeddings for RAG (brand documents)
 
 ---
 
@@ -99,33 +136,37 @@ It serves as both a functional admin for a real storefront and a showcase for **
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Client (Browser)                                   │
-│  ┌─────────────────────┐    ┌─────────────────────┐    ┌──────────────────┐ │
-│  │  Admin Dashboard    │    │  Flow Builder       │    │  AI Assistant    │ │
-│  │  (Orders, Products, │    │  (React Flow)       │    │  (Chat + Tools)  │ │
-│  │   Discounts, etc.)  │    │                     │    │                  │ │
-│  └──────────┬──────────┘    └──────────┬──────────┘    └────────┬─────────┘ │
+│                              Client (Browser)                                │
+│  ┌─────────────────────┐    ┌─────────────────────┐    ┌──────────────────┐  │
+│  │  Admin Dashboard    │    │  Flow Builder       │    │  Metrics         │  │
+│  │  (Orders, Products, │    │  (React Flow +      │    │  Assistant       │  │
+│  │   Discounts, etc.)  │    │   chat panel)       │    │  (NL → SQL/GA4)  │  │
+│  └──────────┬──────────┘    └──────────┬──────────┘    └────────┬─────────┘  │
 └─────────────┼──────────────────────────┼────────────────────────┼───────────┘
               │                          │                        │
               ▼                          ▼                        ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                      Next.js 15 (App Router)                                 │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  Middleware — Auth check, admin allowlist (Supabase)                  │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  API Routes (/api/v2/*)                                              │   │
-│  │  • products, cart, orders, discounts, subscribers (public)            │   │
-│  │  • admin/* (protected)                                               │   │
-│  │  • webhooks/razorpay                                                 │   │
-│  │  • ai/assistant, flows/generate, flows/[id]/validate                  │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  AI Layer                                                            │   │
-│  │  • OpenAI (function-calling, embeddings)                             │   │
-│  │  • RAG: embed query → vector search (pgvector) → inject context      │   │
-│  │  • Schema validation (Zod) + self-correction loops                   │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
+│                         Next.js 15 (App Router)                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐    │
+│  │  middleware.ts — Supabase session + admin_allowlist gate on /admin/*  │    │
+│  └──────────────────────────────────────────────────────────────────────┘    │
+│  ┌──────────────────────────────────────────────────────────────────────┐    │
+│  │  API Routes                                                           │    │
+│  │  • /api/v2/*        products, cart, orders, discounts, subscribers     │    │
+│  │  • /api/v2/admin/*  protected CRUD (orders, products, discounts, …)    │    │
+│  │  • /api/v2/webhooks/razorpay                                          │    │
+│  │  • /api/ai/assistant            (email gen / metrics)                  │    │
+│  │  • /api/flows/* generate|validate|activate                            │    │
+│  │  • /api/templates/[id]          email templates                       │    │
+│  │  • /api/admin/analytics/*       reports, charts, ga4/report           │    │
+│  └──────────────────────────────────────────────────────────────────────┘    │
+│  ┌──────────────────────────────────────────────────────────────────────┐    │
+│  │  AI Layer (lib/ai, lib/ga4, lib/flows, lib/db)                        │    │
+│  │  • OpenAI structured outputs (JSON Schema via zod-to-json-schema)      │    │
+│  │  • RAG: embed query → pgvector cosine search → inject brand context    │    │
+│  │  • Safe SQL: SELECT-only, table/column whitelist, enum casts, LIMIT    │    │
+│  │  • Zod validation + self-correction retries                           │    │
+│  └──────────────────────────────────────────────────────────────────────┘    │
 └───────────────────────────────┬─────────────────────────────────────────────┘
                                 │
         ┌───────────────────────┼───────────────────────┐
@@ -133,76 +174,99 @@ It serves as both a functional admin for a real storefront and a showcase for **
 ┌───────────────┐    ┌──────────────────┐    ┌──────────────────┐
 │  Supabase     │    │  Razorpay        │    │  GA4 / Resend    │
 │  Postgres +   │    │  Payments +      │    │  Analytics +     │
-│  Auth         │    │  Webhooks        │    │  Email           │
+│  pgvector +   │    │  Webhooks        │    │  Email           │
+│  Auth         │    │                  │    │                  │
 └───────────────┘    └──────────────────┘    └──────────────────┘
 ```
 
 ### Design Patterns
 
-
-| Pattern                     | Implementation                                                                |
-| --------------------------- | ----------------------------------------------------------------------------- |
-| **Idempotency**             | `ProcessedEvent` table for webhook event IDs; 204 on duplicate                |
-| **CQRS-lite**               | Separate read paths (analytics, reports) from write paths (orders, inventory) |
-| **Schema-first validation** | Zod schemas on all API inputs and AI outputs                                  |
-| **Edge protection**         | Auth + allowlist in middleware before hitting app logic                       |
-| **Safe SQL**                | Whitelist of allowed tables/columns; read-only execution; no `DROP`/`DELETE`  |
-
+| Pattern                     | Implementation                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| **Idempotency**             | `ProcessedEvent` table for webhook event IDs; duplicate events short‑circuit     |
+| **Transactional integrity** | `prisma.$transaction` for checkout (order + items + monotonic order number)      |
+| **Monotonic counters**      | `order_counter` singleton row via `lib/order-counter.ts`                         |
+| **CQRS‑lite**               | Separate read paths (analytics, reports) from write paths (orders, inventory)    |
+| **Schema‑first validation** | Zod schemas on API inputs and on every AI output                                 |
+| **Edge protection**         | Auth + allowlist in `middleware.ts` before app logic                             |
+| **Safe SQL**                | Whitelisted tables/columns; SELECT‑only; banned keywords; auto `LIMIT 500`       |
 
 ---
 
 ## 🧠 AI Layer Deep Dive
 
-### 1. Retrieval-Augmented Generation (RAG)
+### 1. Retrieval‑Augmented Generation (RAG) — `lib/ai/embeddings.ts`
 
-Before generating emails or content:
+- Query embedded via `text-embedding-3-small` (1536 dims; dimension asserted at runtime)
+- Vector search over `BrandDocument` using pgvector **cosine distance** (`<=>`), `threshold 0.7`, top‑N per category
+- Categories seeded by `scripts/seedBrandDocs.ts`: `brand_voice`, `brand_story`, `philosophy`, `ritual`, `product`
+- Retrieved context is injected into the email‑generation system prompt
+- **Note:** the RAG pipeline is implemented, but the end‑to‑end **email‑generation chatbot is currently not working** (see [limitations](#-project-status--known-limitations))
 
-- User query is embedded via `text-embedding-3-small`
-- Vector search over `BrandDocument` (pgvector) for brand tone, product info
-- Relevant context injected into system prompt
-- **Result:** Emails reference actual products, prices, and brand voice — not hallucinations
-
-### 2. Safe SQL Generation
+### 2. Safe SQL Generation — `lib/ai/generateSql.ts` + `lib/db/runSql.ts`
 
 - **Input:** Natural language (e.g., "revenue by day last 7 days")
-- **Output:** Parameterized SQL + visualization hint (table, timeseries, bar)
+- **Output:** `SqlPlanSchema` — `{ metric, sql, params[], visualization, usedTables[], usedColumns[] }`
 - **Guardrails:**
-  - Only allowed tables: `Order`, `OrderItem`, `AlyraProduct`, `Customer`
-  - Canonical column mapping; invalid columns rejected
-  - Read-only execution via Prisma `$queryRawUnsafe` (no mutations)
-- **Validation:** `SqlPlanSchema` (Zod) — on failure, error returned to caller (or LLM for retry)
+  - SELECT‑only; no semicolons, no CTEs, no `INSERT/UPDATE/DELETE/DROP/ALTER/CREATE/TRUNCATE/GRANT/REVOKE/EXECUTE/VACUUM`
+  - Allowed tables only: `Order`, `OrderItem`, `AlyraProduct`, `Customer` (with alias resolution)
+  - Allowed‑column whitelist with canonical identifier normalization
+  - Enum literals auto‑cast (e.g. `'paid'::"PaymentStatus"`)
+  - Auto‑appends `LIMIT 500` unless it is an explicit COUNT‑only metric
+  - Executed read‑only via `prisma.$queryRawUnsafe(sql, ...params)` with parameterized values
+- **PII guard:** `customer_id`‑style columns are stripped from assistant results before returning
 
-### 3. Flow Generation & Validation
+### 3. Dual Analytics Sources — `app/api/ai/assistant/route.ts`
 
-- **Input:** Natural language prompt (e.g., "order confirmation + winback after 30 days")
-- **Output:** Flow manifest (nodes + edges) with trigger, condition, delay, send_email nodes
-- **Rules:** Marketing emails require `marketingSubscribed` condition; transactional emails follow strict MJML layout
+- **Store DB:** NL → SQL (revenue, orders, products, customers)
+- **GA4:** NL → rule‑based planner (`lib/ga4/nlToGa4.ts`) → GA4 Reporting API (`lib/ga4/client.ts`)
+- **Intent routing:** keywords like `sessions`, `traffic`, `country`, `source/medium`, `pageviews`, `ga4` route to GA4; everything else defaults to SQL
+- GA4 auth uses a **service account**: a signed JWT (RS256) is exchanged for a short‑lived access token, cached in‑process
+
+### 4. Flow Generation & Validation — `app/api/flows/generate/route.ts`, `lib/flows/validate.ts`, `lib/flows/runtime.ts`
+
+- **Input:** Natural language (e.g., "order confirmation + winback after 30 days")
+- **Output:** Flow manifest (`nodes[]` + `edges[]`) with `trigger`, `condition`, `delay`, `action(send_email)` node types, plus MJML email templates
+- **Rules:** Marketing emails require a `marketingSubscribed` consent condition (auto‑inserted); transactional emails follow a fixed MJML layout (Alyra logo top/bottom)
 - **Validation:** `/api/flows/[id]/validate` checks structure before activation
-
-### 4. Dual Analytics Sources
-
-- **Store DB:** NL → SQL (revenue, orders, products)
-- **GA4:** NL → rule-based planner → GA4 Reporting API (sessions, traffic, countries)
-- Intent routing: GA4 for "traffic", "sessions", "countries"; otherwise SQL
+- **Runtime:** `evaluateFlow` suppresses sends for `bounced`/`complained` customers, gates marketing emails on consent, and renders templates with **Mustache** — but the actual dispatch is a **placeholder/queue stub today** (no email is sent)
 
 ---
 
 ## 🛠️ Tech Stack
 
+| Layer         | Technologies                                                                 |
+| ------------- | ---------------------------------------------------------------------------- |
+| **Framework** | Next.js 15.5 (App Router), React 19                                           |
+| **Language**  | TypeScript 5.7                                                               |
+| **Database**  | PostgreSQL (Supabase) + pgvector, Prisma 6.17                                 |
+| **Auth**      | Supabase Auth (email/password, magic link) + `admin_allowlist` table          |
+| **UI**        | Tailwind CSS 3.4, shadcn/ui (Radix), lucide‑react, Recharts, cmdk             |
+| **AI**        | OpenAI SDK 6 (`gpt-4o-mini`, `text-embedding-3-small`), `zod-to-json-schema`  |
+| **Email**     | MJML, GrapeJS + `grapesjs-mjml` (visual editor), `@react-email/*`, Mustache, Resend |
+| **Payments**  | Razorpay (Orders REST API, webhooks)                                          |
+| **Analytics** | GA4 Reporting API (service‑account JWT), GA4 Measurement Protocol (helper)    |
+| **Workflows** | React Flow (`@xyflow/react`), custom flow runtime                            |
+| **Data/CSV**  | PapaParse (order CSV import)                                                  |
+| **Validation**| Zod 3                                                                        |
 
-| Layer         | Technologies                                                        |
-| ------------- | ------------------------------------------------------------------- |
-| **Framework** | Next.js 15.5 (App Router), React 19                                 |
-| **Language**  | TypeScript 5.7                                                      |
-| **Database**  | PostgreSQL (Supabase), Prisma 6.17                                  |
-| **Auth**      | Supabase Auth (email/password, magic link), `admin_allowlist` table |
-| **UI**        | Tailwind CSS, shadcn/ui (Radix), Lucide icons, Recharts             |
-| **AI**        | OpenAI (GPT-4o-mini, text-embedding-3-small), zod-to-json-schema    |
-| **Email**     | MJML → HTML (GrapeJS, `@react-email`), Resend                       |
-| **Payments**  | Razorpay (checkout, webhooks)                                       |
-| **Analytics** | GA4 Measurement Protocol, GA4 Reporting API                         |
-| **Workflows** | React Flow (@xyflow/react), custom runtime engine                   |
+---
 
+## 🗃️ Data Model
+
+Prisma schema ([`prisma/schema.prisma`](prisma/schema.prisma)) — **20 models** + 9 enums:
+
+**Commerce:** `AlyraProduct`, `Customer`, `Address`, `Discount`, `DiscountProduct`, `Order`, `OrderItem`, `Cart`, `CartItem`, `Subscriber`
+
+**Ops / infra:** `ProcessedEvent` (webhook idempotency), `OrderCounter` (monotonic order numbers)
+
+**Marketing / AI:** `Flow`, `FlowNode`, `FlowEdge`, `EmailTemplate`, `BrandDocument` (pgvector `vector(1536)`)
+
+**Analytics:** `AnalyticsReport`, `AnalyticsReportDownload`, `AnalyticsChart`
+
+**Enums:** `OrderStatus`, `PaymentStatus`, `FulfillmentStatus`, `DeliveryStatus`, `DiscountType`, `DiscountScope`, `AlyraProductType` (`Refill`/`Set`), `AlyraProductStatus`, `FlowStatus`
+
+> Monetary values are stored as integer **minor units** (e.g. `totalMinor`, `priceMinor`) — divide by 100 for display.
 
 ---
 
@@ -211,55 +275,66 @@ Before generating emails or content:
 ```
 nexus-commerce/
 ├── app/
-│   ├── admin/                    # Protected admin pages
+│   ├── page.tsx                  # Public landing page
+│   ├── layout.tsx
+│   ├── admin/                    # Protected admin pages (gated by middleware)
 │   │   ├── overview/             # Dashboard (KPIs, charts)
-│   │   ├── orders/               # Order list + detail
+│   │   ├── orders/[id]/          # Order list + detail
 │   │   ├── product/              # Product management
 │   │   ├── inventory/            # Inventory view
 │   │   ├── discounts/            # Discount CRUD
-│   │   ├── customers/            # Customer management
+│   │   ├── customers/[id]/       # Customer management
 │   │   ├── subscribers/          # Newsletter subscribers
-│   │   ├── analytics/            # Reports, charts
-│   │   ├── marketing/            # Marketing assistant
-│   │   │   └── assistant/
-│   │   │       ├── flows/        # Flow builder (React Flow)
-│   │   │       └── metrics/      # AI metrics queries
+│   │   ├── analytics/            # Reports, charts (AnalyticsClient)
 │   │   ├── flows/                # Flow list
-│   │   └── settings/             # Settings
+│   │   ├── marketing/
+│   │   │   └── assistant/
+│   │   │       ├── flows/        # Flow builder (React Flow) + EmailEditor + chat panel
+│   │   │       └── metrics/      # NL metrics assistant
+│   │   └── settings/
 │   └── api/
-│       ├── v2/                   # Versioned REST API
-│       │   ├── products/         # Public product APIs
-│       │   ├── cart/             # Cart (cookie-based)
-│       │   ├── orders/           # Checkout, get order
-│       │   ├── discounts/        # Validate discount
-│       │   ├── subscribers/      # Newsletter signup
-│       │   ├── webhooks/razorpay # Payment webhook
-│       │   └── admin/            # Admin CRUD APIs
-│       ├── ai/assistant/         # AI marketing assistant
-│       ├── flows/                # Flow CRUD, generate, validate, activate
-│       └── templates/            # Email templates
+│       ├── v2/                   # Versioned REST API (storefront-facing + admin CRUD)
+│       │   ├── products/         # list, by-slug
+│       │   ├── cart/             # add-item, update-item, apply-discount
+│       │   ├── orders/           # checkout, get
+│       │   ├── discounts/        # validate
+│       │   ├── subscribers/      # newsletter signup
+│       │   ├── webhooks/razorpay # payment webhook
+│       │   └── admin/            # customers, discounts, orders (+ import-csv), products
+│       ├── ai/assistant/         # AI marketing assistant (email gen / metrics)
+│       ├── flows/                # generate, [id], [id]/validate, [id]/activate
+│       ├── templates/[id]/       # email template CRUD
+│       ├── admin/analytics/      # reports, charts, ga4/report
+│       ├── admin/alyra-products/ # product API
+│       ├── auth/signout/
+│       └── session/establish/
 ├── components/
 │   ├── ui/                       # shadcn/ui components
-│   ├── charts/                   # Order/revenue charts
-│   └── analytics/                # Chart cards, reports
+│   ├── charts/                   # orders-bar-chart, revenue-line-chart
+│   ├── analytics/                # ChartCard
+│   └── landing/                  # HeroVisuals
 ├── lib/
-│   ├── ai/                       # OpenAI client, embeddings, generateSql, generateEmail
-│   ├── db/                       # runSql (read-only), Prisma client
-│   ├── flows/                    # Runtime, validation
-│   ├── ga4/                      # NL planner, GA4 client
-│   ├── emails/                   # MJML compilation
+│   ├── ai/                       # client, embeddings, generateSql, generateEmail, json
+│   ├── db/                       # runSql (read-only) ; lib/db.ts = Prisma client
+│   ├── flows/                    # runtime, validate
+│   ├── ga4/                      # client (service-account JWT), nlToGa4, schema
+│   ├── analytics/                # charting, types
+│   ├── emails/                   # compileMjml
+│   ├── schemas/                  # marketing (template manifest)
 │   ├── auth.ts                   # Supabase server client
 │   ├── cors.ts                   # CORS headers
-│   ├── ga.ts                     # GA4 purchase events
+│   ├── ga.ts                     # GA4 Measurement Protocol purchase events
 │   ├── resend.ts                 # Email sending
 │   ├── order-counter.ts          # Monotonic order numbers
-│   └── schemas/                  # Zod schemas
+│   └── zod-schemas.ts
 ├── prisma/
-│   ├── schema.prisma             # Full schema (20+ models)
+│   ├── schema.prisma             # 20 models + 9 enums
 │   ├── seed.ts                   # Seed script
-│   └── migrations/               # Migration history
-├── emails/                       # MJML + React Email templates
-├── types/                        # Flow types, etc.
+│   └── migrations/               # 18 migrations
+├── emails/design-system-v1.tsx   # React Email design system
+├── scripts/seedBrandDocs.ts      # Seed BrandDocument embeddings for RAG
+├── types/flow.ts                 # Flow manifest types
+├── public/brand/                 # Brand assets (logo)
 └── middleware.ts                 # Auth + admin allowlist
 ```
 
@@ -269,9 +344,9 @@ nexus-commerce/
 
 ### Prerequisites
 
-- **Node.js** 18+
-- **PostgreSQL** (Supabase recommended)
-- **API keys:** OpenAI, Resend, Razorpay (test mode), GA4 (optional)
+- **Node.js** 18.18+ (20 LTS recommended)
+- **PostgreSQL** with the **pgvector** extension (Supabase recommended)
+- **API keys:** OpenAI, Razorpay (test mode); optional: Resend, GA4 service account
 
 ### 1. Clone & Install
 
@@ -281,58 +356,47 @@ cd nexus-commerce
 npm install
 ```
 
-### 2. Environment Variables
+### 2. Configure environment
 
-Create `.env.local` from `.env.example` and configure:
+Create a `.env` file in the project root (see [Environment Variables](#-environment-variables) for the full list).
 
-```env
-# Database (Supabase)
-DATABASE_URL=postgresql://...
-DIRECT_URL=postgresql://...
+### 3. Database setup
 
-# Supabase Auth
-NEXT_PUBLIC_SUPABASE_URL=https://[project].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-# Add your email to admin_allowlist table in Supabase
+Enable pgvector once on your database, then run migrations and seed:
 
-# AI
-OPENAI_API_KEY=sk-...
-OPENAI_GENERATION_MODEL=gpt-4o-mini
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-
-# Payments
-RAZORPAY_KEY_ID=rzp_test_...
-RAZORPAY_KEY_SECRET=...
-RAZORPAY_WEBHOOK_SECRET=...
-
-# Email
-RESEND_API_KEY=re_...
-
-# Analytics (optional)
-VITE_GA4_ID=G-...
-GA4_API_SECRET=...
-
-# CORS
-ALLOWED_ORIGIN=https://your-storefront.com
+```sql
+-- run on your Postgres/Supabase instance
+CREATE EXTENSION IF NOT EXISTS vector;
 ```
-
-### 3. Database Setup
 
 ```bash
 npm run prisma:generate
-npm run prisma:migrate
-npm run seed
+npm run prisma:migrate          # dev migrations
+npm run seed                    # seed products/customers/etc.
+npx tsx scripts/seedBrandDocs.ts  # seed RAG brand documents (requires OPENAI_API_KEY)
 ```
 
-### 4. Run Development Server
+### 4. Add yourself to the admin allowlist
+
+Create an `admin_allowlist` table in Supabase and insert your email with `is_active = true`. The middleware blocks any `/admin/*` route for emails not present and active in this table.
+
+```sql
+create table if not exists admin_allowlist (
+  email text primary key,
+  is_active boolean not null default true
+);
+insert into admin_allowlist (email, is_active) values ('you@example.com', true);
+```
+
+### 5. Run the dev server
 
 ```bash
 npm run dev
 ```
 
-Visit [http://localhost:3000/admin](http://localhost:3000/admin) — you'll be redirected to login. Use Supabase magic link or email/password for an account in `admin_allowlist`.
+Visit [http://localhost:3000](http://localhost:3000) for the landing page, or [http://localhost:3000/admin](http://localhost:3000/admin) to sign in (Supabase magic link / email‑password for an allowlisted account).
 
-### 5. Razorpay Webhook (Payments)
+### 6. Razorpay webhook (payments)
 
 - **URL:** `POST https://your-domain.com/api/v2/webhooks/razorpay`
 - **Event:** `payment.captured`
@@ -340,61 +404,115 @@ Visit [http://localhost:3000/admin](http://localhost:3000/admin) — you'll be r
 
 ---
 
-## 🧪 Try It Yourself
+## 🔑 Environment Variables
 
+Create a `.env` file in the project root:
 
-| Task                                               | Where                             |
-| -------------------------------------------------- | --------------------------------- |
-| Ask "revenue by day last 7 days"                   | Marketing Assistant → Metrics     |
-| Generate "product launch email for Summer Set"     | Marketing Assistant → Email       |
-| Build "abandoned cart flow, 2h wait, 10% discount" | Marketing Assistant → Flows       |
-| Create order → apply discount → checkout           | Orders, Discounts, Cart API       |
-| Import orders from CSV                             | Admin → Orders → Import           |
-| View GA4 traffic by country                        | Ask "top 5 countries by sessions" |
+```env
+# ── Database (Supabase / Postgres) ──────────────────────────────
+DATABASE_URL=postgresql://...            # pooled connection
+DIRECT_URL=postgresql://...              # direct connection (migrations)
 
+# ── Supabase Auth ───────────────────────────────────────────────
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+# Add your email to the admin_allowlist table (see step 4)
+
+# ── OpenAI ──────────────────────────────────────────────────────
+OPENAI_API_KEY=sk-...
+OPENAI_GENERATION_MODEL=gpt-4o-mini            # optional (default shown)
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small  # optional (default shown)
+# OPENAI_SQL_MODEL=gpt-4o-mini                  # optional override for SQL generation
+
+# ── Payments (Razorpay) ─────────────────────────────────────────
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
+
+# ── Email (Resend) ──────────────────────────────────────────────
+RESEND_API_KEY=re_...
+
+# ── Google Analytics 4 (Reporting API — service account) ────────
+GA4_PROPERTY_ID=123456789
+GOOGLE_CLIENT_EMAIL=...@...iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GA4_DEFAULT_DATE_RANGE_DAYS=30            # optional (default 30)
+
+# ── App config ──────────────────────────────────────────────────
+ALLOWED_ORIGIN=https://your-storefront.com   # CORS for /api/v2 public routes
+COOKIE_CART_NAME=nx_cart
+NODE_ENV=development
+```
+
+> **GA4 note:** the natural‑language GA4 reporting path authenticates with a **service account** (`GOOGLE_CLIENT_EMAIL` + `GOOGLE_PRIVATE_KEY` + `GA4_PROPERTY_ID`). The Measurement‑Protocol purchase‑event helper in `lib/ga.ts` takes its `measurementId`/`apiSecret` as arguments and is not yet wired to env — server‑side purchase tracking is therefore inactive by default.
 
 ---
 
-## 📡 API Overview
+## 📡 API Reference
 
-### Public (CORS-enabled)
+### Public (CORS‑enabled, `/api/v2`)
 
+| Method | Endpoint                          | Description              |
+| ------ | --------------------------------- | ----------------------- |
+| GET    | `/api/v2/products/list`           | List active products     |
+| GET    | `/api/v2/products/by-slug?slug=`  | Product by slug          |
+| POST   | `/api/v2/cart/add-item`           | Add to cart              |
+| PATCH  | `/api/v2/cart/update-item`        | Update quantity          |
+| POST   | `/api/v2/cart/apply-discount`     | Apply discount code      |
+| POST   | `/api/v2/orders/checkout`         | Create order + Razorpay order |
+| GET    | `/api/v2/orders/get?id=`          | Get order details        |
+| POST   | `/api/v2/discounts/validate`      | Validate discount        |
+| POST   | `/api/v2/subscribers`             | Newsletter signup        |
 
-| Method | Endpoint                         | Description             |
-| ------ | -------------------------------- | ----------------------- |
-| GET    | `/api/v2/products/list`          | List active products    |
-| GET    | `/api/v2/products/by-slug?slug=` | Product by slug         |
-| POST   | `/api/v2/cart/add-item`          | Add to cart             |
-| PATCH  | `/api/v2/cart/update-item`       | Update quantity         |
-| POST   | `/api/v2/cart/apply-discount`    | Apply discount code     |
-| POST   | `/api/v2/orders/checkout`        | Create order + Razorpay |
-| GET    | `/api/v2/orders/get?id=`         | Get order details       |
-| POST   | `/api/v2/discounts/validate`     | Validate discount       |
-| POST   | `/api/v2/subscribers`            | Newsletter signup       |
+### Admin (protected via middleware, `/api/v2/admin`)
 
+| Resource   | Endpoints |
+| ---------- | --------- |
+| Orders     | `create`, `delete`, `fulfill`, `import-csv`, `list`, `update-payment-status`, `update-fulfillment-status`, `update-delivery-status`, `update-notes` |
+| Products   | `list`, `update` (also `/api/admin/alyra-products`, `/api/admin/alyra-products/[id]`) |
+| Discounts  | `create`, `list`, `update/[id]`, `delete/[id]` |
+| Customers  | `create`, `get`, `list`, `delete`, `update-email-subscription` |
 
-### Admin (Protected)
+### AI / Marketing
 
-Orders, products, discounts, customers — full CRUD. See `ARCHITECTURE.md` for details.
+| Method | Endpoint                          | Description |
+| ------ | --------------------------------- | ----------- |
+| POST   | `/api/ai/assistant`               | `intent: generate_email` *(currently broken)*, `query_metrics` (SQL/GA4); `create_flow` → `501` (deprecated) |
+| POST   | `/api/flows/generate`             | NL → flow manifest + email templates |
+| GET/POST | `/api/flows`                    | List / create flows |
+| GET/PATCH/DELETE | `/api/flows/[id]`       | Read / update / delete a flow |
+| POST   | `/api/flows/[id]/validate`        | Validate flow structure |
+| POST   | `/api/flows/[id]/activate`        | Activate a flow |
+| GET/PATCH | `/api/templates/[id]`          | Email template read/update (MJML + HTML) |
+
+### Admin Analytics
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| GET/POST | `/api/admin/analytics/reports` | List / save reports |
+| GET/PATCH/DELETE | `/api/admin/analytics/reports/[id]` | Report detail |
+| POST | `/api/admin/analytics/reports/[id]/convert` | Convert report → chart |
+| GET | `/api/admin/analytics/reports/[id]/export` | CSV export (records a download) |
+| GET/POST | `/api/admin/analytics/charts` (+ `/[id]`) | Saved charts |
+| POST | `/api/admin/analytics/ga4/report` | Run a GA4 report |
 
 ### Webhooks
 
-
-| Endpoint                         | Service  | Verification |
-| -------------------------------- | -------- | ------------ |
-| POST `/api/v2/webhooks/razorpay` | Razorpay | HMAC SHA256  |
-
+| Endpoint                          | Service  | Verification |
+| --------------------------------- | -------- | ------------ |
+| POST `/api/v2/webhooks/razorpay`  | Razorpay | HMAC SHA256 (`x-razorpay-signature`) + idempotency |
 
 ---
 
 ## 🔒 Security & Reliability
 
-- **Auth:** Supabase session + `admin_allowlist` table (only allowlisted emails access `/admin`)
-- **CORS:** Scoped to `ALLOWED_ORIGIN`
-- **Webhooks:** Signature verification, idempotency via `ProcessedEvent`
-- **Input validation:** Zod on all API requests
-- **SQL injection:** Prisma ORM + read-only SQL with whitelisted tables
-- **PII:** Customer IDs/emails redacted from AI metric responses when possible
+- **Auth:** Supabase session + `admin_allowlist` table — only allowlisted, active emails reach `/admin/*` (enforced in `middleware.ts`)
+- **CORS:** Public `/api/v2` routes scoped to `ALLOWED_ORIGIN`
+- **Webhooks:** HMAC SHA256 signature verification + idempotency via `ProcessedEvent`
+- **Input validation:** Zod on API requests and on every AI output
+- **SQL safety:** Prisma ORM; AI‑generated analytics are SELECT‑only over a table/column whitelist with banned‑keyword checks and parameterized values
+- **PII:** `customer_id`‑style columns redacted from assistant metric responses
+- **Consent & suppression:** Flow runtime suppresses sends for bounced/complained customers and gates marketing emails on `marketingSubscribed`
 
 ---
 
@@ -402,59 +520,54 @@ Orders, products, discounts, customers — full CRUD. See `ARCHITECTURE.md` for 
 
 ```bash
 npm run dev               # Start dev server
-npm run build             # Prisma generate + Next build
+npm run build             # prisma generate && next build
 npm run start             # Production server
+npm run lint              # ESLint (next lint)
 npm run prisma:generate   # Generate Prisma client
-npm run prisma:migrate    # Dev migrations
-npm run prisma:deploy     # Prod migrations
-npm run seed              # Seed database
-npm run lint              # ESLint
+npm run prisma:migrate    # Dev migrations (prisma migrate dev)
+npm run prisma:deploy     # Prod migrations (prisma migrate deploy)
+npm run seed              # Seed database (tsx prisma/seed.ts)
+
+# Not in package.json, run directly:
+npx tsx scripts/seedBrandDocs.ts   # Seed RAG brand documents (embeddings)
+node test-delivery-status.js       # Ad-hoc delivery-status test script
 ```
-
----
-
-## 🧩 Engineering Takeaways
-
-Building NexusCommerce deepened my experience in:
-
-- **Agentic AI systems** — Tool-calling, structured outputs, validation loops, RAG
-- **Workflow orchestration** — Designing a flow runtime from triggers → conditions → delays → actions
-- **Safe AI outputs** — Constrained SQL, schema validation, human-in-the-loop for risky actions
-- **Distributed systems** — Webhooks, idempotency, transactional consistency
-- **Domain-driven APIs** — Versioning, clear boundaries, CORS for cross-origin storefronts
-- **Full-stack deployment** — Environment config, migrations, seeds, Vercel-ready
 
 ---
 
 ## 🗺️ Roadmap
 
-- Role-based access control (RBAC)
+**Fix in progress (see [Project Status](#-project-status--known-limitations)):**
+- 🔧 Repair the brand‑design **email‑generation chatbot** (end‑to‑end RAG → MJML → editor)
+- 🔧 Wire **flow email delivery** to Resend (replace the runtime placeholder/queue stub)
+- 🔧 Provision GA4 Measurement‑Protocol credentials for server‑side purchase events
+
+**Planned:**
+- Role‑based access control (RBAC) beyond the allowlist
 - Rate limiting & audit logging
-- Advanced exports (CSV/Excel) and scheduled reports
-- Multi-channel flow actions (SMS, push)
-- Real-time order updates (WebSockets)
+- Scheduled reports and richer exports
+- Multi‑channel flow actions (SMS, push)
+- Real‑time order updates (WebSockets)
 
 ---
 
 ## 📚 Documentation
 
-
-| Document          | Description                                     |
-| ----------------- | ----------------------------------------------- |
-| `README.md`       | This file                                       |
-| `ARCHITECTURE.md` | Detailed architecture, API reference, data flow |
-| `QUICKSTART.md`   | Quick setup and testing checklist               |
-
+| Document          | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `README.md`       | This file                                         |
+| `ARCHITECTURE.md` | Detailed architecture, API reference, data flow   |
+| `QUICKSTART.md`   | Quick setup and testing checklist                 |
 
 ---
 
-## 📬 Contact & Portfolio
+## 📬 Contact
 
-I built NexusCommerce to demonstrate full-stack and AI engineering skills. If you're a recruiter, hiring manager, or engineer interested in the system:
+Built by **Amaan Barmare** to demonstrate full‑stack and AI engineering.
 
-- **Email:** [your-email@example.com](mailto:your-email@example.com)
-- **LinkedIn:** [your-linkedin](https://linkedin.com/in/your-profile)
-- **Portfolio:** [your-portfolio](https://your-portfolio.com)
+- **Email:** [amaan.barmare03@gmail.com](mailto:amaan.barmare03@gmail.com)
+- **LinkedIn:** _add your profile_
+- **Portfolio:** _add your portfolio_
 
 ---
 
@@ -462,4 +575,4 @@ I built NexusCommerce to demonstrate full-stack and AI engineering skills. If yo
 
 This repository is private and not licensed for commercial use. Code may be viewed for evaluation purposes only.
 
-© 2026
+© 2026 Amaan Barmare
