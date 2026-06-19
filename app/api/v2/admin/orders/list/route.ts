@@ -19,7 +19,11 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const showAll = searchParams.get('showAll') === 'true';
+    // Date range preset: today | yesterday | 7days | 30days | 90days | all
+    // (back-compat: showAll=true behaves like range=all)
+    const range = searchParams.get('showAll') === 'true'
+      ? 'all'
+      : (searchParams.get('range') || '30days');
 
     const skip = (page - 1) * limit;
 
@@ -28,20 +32,39 @@ export async function GET(request: NextRequest) {
     if (status) {
       where.status = status;
     }
+
     if (startDate || endDate) {
+      // Explicit start/end dates take precedence over the preset
       where.createdAt = {};
       if (startDate) where.createdAt.gte = new Date(startDate);
       if (endDate) where.createdAt.lte = new Date(endDate);
-    }
-    
-    // If not showing all orders, filter to last 30 days
-    if (!showAll) {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      where.createdAt = {
-        ...where.createdAt,
-        gte: thirtyDaysAgo,
-      };
+    } else if (range !== 'all') {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      let end: Date | null = null;
+
+      switch (range) {
+        case 'today':
+          // start already at today 00:00
+          break;
+        case 'yesterday':
+          end = new Date(start.getTime() - 1); // end of yesterday (23:59:59.999)
+          start.setDate(start.getDate() - 1);
+          break;
+        case '7days':
+          start.setDate(start.getDate() - 7);
+          break;
+        case '90days':
+          start.setDate(start.getDate() - 90);
+          break;
+        case '30days':
+        default:
+          start.setDate(start.getDate() - 30);
+          break;
+      }
+
+      where.createdAt = { gte: start };
+      if (end) where.createdAt.lte = end;
     }
 
     const [orders, total] = await Promise.all([

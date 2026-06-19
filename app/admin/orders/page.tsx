@@ -91,10 +91,19 @@ interface OrderItem {
   lineTotalMinor: number;
 }
 
+const DATE_RANGE_LABELS: Record<string, string> = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  '7days': 'Last 7 Days',
+  '30days': 'Last 30 Days',
+  '90days': 'Last 90 Days',
+  all: 'All Orders',
+};
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
+  const [dateRange, setDateRange] = useState('30days');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [products, setProducts] = useState<AlyraProduct[]>([]);
   const [creating, setCreating] = useState(false);
@@ -193,7 +202,7 @@ export default function OrdersPage() {
     // Clear selected orders when filter changes
     setSelectedOrders([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAll]);
+  }, [dateRange]);
 
   // Sync state search with form state
   useEffect(() => {
@@ -204,7 +213,7 @@ export default function OrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/v2/admin/orders/list?showAll=${showAll}`);
+      const response = await fetch(`/api/v2/admin/orders/list?range=${dateRange}`);
       const data = await response.json();
       setOrders(data.orders || []);
     } catch (error) {
@@ -577,7 +586,7 @@ export default function OrdersPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>{showAll ? 'All Orders' : 'Recent Orders'}</CardTitle>
+            <CardTitle>{dateRange === 'all' ? 'All Orders' : `Orders · ${DATE_RANGE_LABELS[dateRange]}`}</CardTitle>
             <div className="flex items-center gap-3">
               <Button onClick={() => {
                 setIsCreateDialogOpen(true);
@@ -641,12 +650,16 @@ export default function OrdersPage() {
                   Delete ({selectedOrders.length})
                 </Button>
               )}
-              <Select value={showAll ? 'all' : 'recent'} onValueChange={(value) => setShowAll(value === 'all')}>
+              <Select value={dateRange} onValueChange={setDateRange}>
                 <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="recent">Last 30 Days</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="yesterday">Yesterday</SelectItem>
+                  <SelectItem value="7days">Last 7 Days</SelectItem>
+                  <SelectItem value="30days">Last 30 Days</SelectItem>
+                  <SelectItem value="90days">Last 90 Days</SelectItem>
                   <SelectItem value="all">All Orders</SelectItem>
                 </SelectContent>
               </Select>
