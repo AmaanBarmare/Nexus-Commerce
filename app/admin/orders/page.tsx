@@ -91,6 +91,8 @@ interface OrderItem {
   lineTotalMinor: number;
 }
 
+const PAGE_SIZE = 50;
+
 const DATE_RANGE_LABELS: Record<string, string> = {
   today: 'Today',
   yesterday: 'Yesterday',
@@ -104,6 +106,8 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('30days');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, pages: 1 });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [products, setProducts] = useState<AlyraProduct[]>([]);
   const [creating, setCreating] = useState(false);
@@ -197,12 +201,16 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-    fetchProducts();
-    fetchDiscounts();
-    // Clear selected orders when filter changes
+    // Clear selected orders when filter or page changes
     setSelectedOrders([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange]);
+  }, [dateRange, page]);
+
+  useEffect(() => {
+    fetchProducts();
+    fetchDiscounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sync state search with form state
   useEffect(() => {
@@ -213,9 +221,15 @@ export default function OrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/v2/admin/orders/list?range=${dateRange}`);
+      const response = await fetch(`/api/v2/admin/orders/list?range=${dateRange}&page=${page}&limit=${PAGE_SIZE}`);
       const data = await response.json();
       setOrders(data.orders || []);
+      const pages = data.pagination?.pages || 1;
+      setPagination({ total: data.pagination?.total || 0, pages });
+      // Snap back if the current page no longer exists (e.g. after deletions)
+      if (page > 1 && page > pages) {
+        setPage(pages);
+      }
     } catch (error) {
       console.error('Failed to fetch orders:', error);
     } finally {
@@ -650,7 +664,7 @@ export default function OrdersPage() {
                   Delete ({selectedOrders.length})
                 </Button>
               )}
-              <Select value={dateRange} onValueChange={setDateRange}>
+              <Select value={dateRange} onValueChange={(value) => { setDateRange(value); setPage(1); }}>
                 <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
@@ -686,6 +700,7 @@ export default function OrdersPage() {
               <p className="text-gray-500 mt-2">Loading orders...</p>
             </div>
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -799,6 +814,35 @@ export default function OrdersPage() {
                 )}
               </TableBody>
             </Table>
+            {pagination.total > 0 && (
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-sm text-gray-500">
+                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, pagination.total)} of {pagination.total} orders
+                </p>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-gray-500">
+                    Page {page} of {pagination.pages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= pagination.pages}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>
